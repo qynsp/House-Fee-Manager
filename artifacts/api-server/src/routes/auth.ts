@@ -1,13 +1,42 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
+import { createHmac } from "node:crypto";
 import { db, usersTable } from "@workspace/db";
 import { TelegramAuthBody, AdminLoginBody } from "@workspace/api-zod";
 import { signToken } from "../middlewares/auth";
 import { generateReferralCode } from "../lib/referral";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "bingo_admin_2024";
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
+const IS_DEV = process.env.NODE_ENV !== "production";
+
+// Validate Telegram initData HMAC signature
+function validateTelegramInitData(initData: string): boolean {
+  if (!BOT_TOKEN) return false;
+  try {
+    const params = new URLSearchParams(initData);
+    const hash = params.get("hash");
+    if (!hash) return false;
+    params.delete("hash");
+
+    // Build data_check_string: sorted key=value pairs joined by \n
+    const entries = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join("\n");
+
+    // Secret key = HMAC-SHA256("WebAppData", bot_token)
+    const secretKey = createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const expectedHash = createHmac("sha256", secretKey).update(entries).digest("hex");
+
+    return expectedHash === hash;
+  } catch {
+    return false;
+  }
+}
 
 // Telegram authentication
 router.post("/auth/telegram", async (req, res): Promise<void> => {
@@ -17,18 +46,34 @@ router.post("/auth/telegram", async (req, res): Promise<void> => {
     return;
   }
 
-  // Parse Telegram initData (in production, validate HMAC signature)
+  const initData = parsed.data.initData;
   let telegramUser: { id: number; username?: string; first_name: string; last_name?: string; photo_url?: string } | null = null;
-  try {
-    const params = new URLSearchParams(parsed.data.initData);
-    const userStr = params.get("user");
-    if (userStr) {
-      telegramUser = JSON.parse(decodeURIComponent(userStr));
+
+  // Try to parse as Telegram initData (URL-encoded from WebApp)
+  const params = new URLSearchParams(initData);
+  const userStr = params.get("user");
+
+  if (userStr) {
+    // Validate HMAC in production
+    if (!IS_DEV && !validateTelegramInitData(initData)) {
+      logger.warn({ initData }, "Invalid Telegram HMAC signature");
+      res.status(401).json({ error: "Invalid Telegram signature" });
+      return;
     }
-  } catch {
-    // In dev/test mode, accept a JSON body directly
     try {
-      telegramUser = JSON.parse(parsed.data.initData);
+      telegramUser = JSON.parse(userStr);
+    } catch {
+      res.status(401).json({ error: "Malformed user in initData" });
+      return;
+    }
+  } else {
+    // Dev/test mode: accept raw JSON
+    if (!IS_DEV) {
+      res.status(401).json({ error: "Invalid initData format" });
+      return;
+    }
+    try {
+      telegramUser = JSON.parse(initData);
     } catch {
       res.status(401).json({ error: "Invalid Telegram init data" });
       return;
@@ -43,7 +88,6 @@ router.post("/auth/telegram", async (req, res): Promise<void> => {
   const telegramId = String(telegramUser.id);
   const username = telegramUser.username ?? `user_${telegramUser.id}`;
 
-  // Upsert user
   let [user] = await db.select().from(usersTable).where(eq(usersTable.telegramId, telegramId));
   if (!user) {
     const referralCode = generateReferralCode(telegramId);
@@ -56,7 +100,6 @@ router.post("/auth/telegram", async (req, res): Promise<void> => {
       referralCode,
     }).returning();
   } else {
-    // Update profile info
     [user] = await db.update(usersTable).set({
       username,
       firstName: telegramUser.first_name,
@@ -87,7 +130,6 @@ router.post("/auth/admin", async (req, res): Promise<void> => {
     return;
   }
 
-  // Find or create admin user
   let [admin] = await db.select().from(usersTable).where(eq(usersTable.role, "admin"));
   if (!admin) {
     [admin] = await db.insert(usersTable).values({
