@@ -1,0 +1,620 @@
+You are a senior full-stack software engineer and system architect.
+
+Your task is to help me build a production-ready Telegram Bingo Web App from scratch.
+
+IMPORTANT RULES
+
+- Build the project one step at a time.
+- Never skip steps.
+- Never generate the entire project in one response.
+- Wait for me to say "Next" before continuing.
+- Every step must compile and run before moving forward.
+- Explain where every file goes.
+- Explain why every piece of code exists.
+- Use clean architecture.
+- Follow best practices.
+- Use TypeScript everywhere.
+- Make the UI modern, responsive and optimized for mobile.
+
+====================================================
+
+PROJECT
+
+Telegram Bingo Web App
+
+====================================================
+
+STACK
+
+Frontend
+- React
+- Vite
+- TypeScript
+- TailwindCSS
+- Telegram WebApp SDK
+- React Query
+- Zustand
+- React Router
+- Framer Motion
+
+Backend
+- Node.js
+- Express
+- TypeScript
+- Socket.io
+- MongoDB
+- Mongoose
+- JWT Authentication
+- Redis
+- BullMQ
+- Winston Logging
+
+Deployment
+- Docker
+- Nginx
+- PM2
+- Ubuntu VPS
+
+====================================================
+
+GAME
+
+Real-time multiplayer Bingo.
+
+Players buy tickets.
+
+A countdown starts.
+
+Game begins automatically.
+
+Numbers are drawn every few seconds.
+
+Numbers are announced.
+
+Players mark their cards.
+
+When someone completes a valid pattern they press BINGO.
+
+Server verifies.
+
+Winner receives prize.
+
+New round starts automatically.
+
+====================================================
+
+BINGO CARD
+
+5 columns
+
+B I N G O
+
+Numbers generated randomly.
+
+Free center square.
+
+Cards stored in database.
+
+Every card must be unique.
+
+====================================================
+
+GAME FLOW
+
+Lobby
+
+↓
+
+Countdown
+
+↓
+
+Ticket Purchase
+
+↓
+
+Game Lock
+
+↓
+
+Number Draw
+
+↓
+
+Player Marks
+
+↓
+
+Bingo Claim
+
+↓
+
+Server Validation
+
+↓
+
+Winner Animation
+
+↓
+
+Prize Distribution
+
+↓
+
+Statistics Saved
+
+↓
+
+Next Round
+
+====================================================
+
+NUMBER DRAW
+
+Server draws numbers only.
+
+No duplicates.
+
+Random.
+
+Broadcast using Socket.io.
+
+Play sound.
+
+Highlight latest number.
+
+Maintain history.
+
+====================================================
+
+WIN PATTERNS
+
+Horizontal
+
+Vertical
+
+Diagonal
+
+Four Corners
+
+X Pattern
+
+Full House
+
+Server validates all patterns.
+
+====================================================
+
+PLAYER FEATURES
+
+Telegram Login
+
+Profile
+
+Balance
+
+Deposit
+
+Withdraw
+
+Buy Ticket
+
+View Tickets
+
+Game History
+
+Win History
+
+Referral Link
+
+Daily Rewards
+
+Notifications
+
+Leaderboard
+
+Settings
+
+====================================================
+
+ADMIN PANEL
+
+Admin Login
+
+Dashboard
+
+Users
+
+Games
+
+Deposits
+
+Withdrawals
+
+Announcements
+
+Statistics
+
+Revenue
+
+Support
+
+Ban Users
+
+Adjust Balance
+
+Create Promotions
+
+Manage Referral Rewards
+
+View Logs
+
+====================================================
+
+PAYMENTS
+
+Manual Telebirr Deposit
+
+Manual Telebirr Withdrawal
+
+Deposit Flow
+
+User clicks Deposit
+
+↓
+
+Shows Telebirr Number
+
+↓
+
+User sends money
+
+↓
+
+Uploads Screenshot
+
+↓
+
+Enters Transaction ID
+
+↓
+
+Admin approves
+
+↓
+
+Balance updated
+
+Withdrawal
+
+User enters amount
+
+↓
+
+Admin reviews
+
+↓
+
+Pays manually
+
+↓
+
+Marks completed
+
+====================================================
+
+REFERRAL SYSTEM
+
+Invite friends.
+
+Receive commission.
+
+Referral leaderboard.
+
+Referral statistics.
+
+====================================================
+
+REWARD SYSTEM
+
+Daily Login Bonus
+
+Weekly Bonus
+
+Monthly Bonus
+
+Lucky Spin
+
+Achievements
+
+====================================================
+
+HOUSE SETTINGS
+
+Ticket Price configurable.
+
+Prize Percentage configurable.
+
+House Cut configurable.
+
+Jackpot configurable.
+
+Draw Interval configurable.
+
+Countdown configurable.
+
+====================================================
+
+ANIMATIONS
+
+Modern UI
+
+Glassmorphism
+
+Smooth transitions
+
+Animated cards
+
+Confetti
+
+Winner celebration
+
+Number pop animation
+
+Responsive
+
+Dark Mode
+
+====================================================
+
+SOUNDS
+
+Countdown
+
+Number Called
+
+Button Click
+
+Bingo
+
+Winner
+
+Coins
+
+====================================================
+
+SECURITY
+
+Rate limiting
+
+JWT
+
+Input validation
+
+Helmet
+
+CORS
+
+Encryption
+
+Server-side validation
+
+Anti Cheat
+
+Duplicate Bingo Prevention
+
+Socket Authentication
+
+====================================================
+
+DATABASE
+
+Collections
+
+Users
+
+Games
+
+Tickets
+
+Transactions
+
+Withdrawals
+
+Deposits
+
+Announcements
+
+Referrals
+
+Rewards
+
+Leaderboard
+
+====================================================
+
+API
+
+REST API
+
+Socket Events
+
+Authentication
+
+Pagination
+
+Filtering
+
+Validation
+
+Error Handling
+
+====================================================
+
+SOCKET EVENTS
+
+connect
+
+disconnect
+
+joinGame
+
+buyTicket
+
+gameStarted
+
+numberDrawn
+
+markNumber
+
+claimBingo
+
+winner
+
+balanceUpdated
+
+leaderboardUpdated
+
+====================================================
+
+GAME ENGINE
+
+Automatically starts games.
+
+Automatically ends games.
+
+Automatically verifies winners.
+
+Automatically distributes prizes.
+
+Automatically archives finished games.
+
+====================================================
+
+TELEGRAM FEATURES
+
+Telegram Login
+
+Telegram Theme
+
+Telegram User Data
+
+Telegram Avatar
+
+Telegram Username
+
+Back Button
+
+Main Button
+
+Haptic Feedback
+
+====================================================
+
+PROJECT STRUCTURE
+
+Create a scalable folder structure.
+
+Separate:
+
+Controllers
+
+Routes
+
+Models
+
+Services
+
+Sockets
+
+Middleware
+
+Utils
+
+Types
+
+Hooks
+
+Components
+
+Pages
+
+Contexts
+
+====================================================
+
+CODE QUALITY
+
+Use reusable components.
+
+No duplicated code.
+
+Proper naming.
+
+Comments only where necessary.
+
+Use environment variables.
+
+====================================================
+
+TESTING
+
+Unit Tests
+
+Integration Tests
+
+Socket Tests
+
+====================================================
+
+DEPLOYMENT
+
+Docker
+
+Docker Compose
+
+MongoDB
+
+Redis
+
+PM2
+
+Nginx
+
+HTTPS
+
+====================================================
+
+DOCUMENTATION
+
+Generate
+
+README
+
+Installation Guide
+
+Deployment Guide
+
+API Documentation
+
+Admin Guide
+
+====================================================
+
+WORKFLOW
+
+Start with Step 1 only.
+
+After completing Step 1, stop.
+
+Wait for me to type:
+
+NEXT
+
+Only then continue to Step 2.
+
+Continue until the entire application is complete.
+
+Do not skip any step.
+
+Always make sure the previous step works before moving forward.

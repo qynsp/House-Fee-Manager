@@ -3,20 +3,38 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Telegram Bingo API specification
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: games
+    description: Bingo games
+  - name: tickets
+    description: Game tickets
+  - name: transactions
+    description: Deposits and withdrawals
+  - name: leaderboard
+    description: Leaderboard
+  - name: settings
+    description: House settings
+  - name: announcements
+    description: Announcements
+  - name: dashboard
+    description: Admin dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +42,929 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+  /auth/telegram:
+    post:
+      operationId: telegramAuth
+      tags: [auth]
+      summary: Authenticate with Telegram init data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelegramAuthInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid init data
+
+  /auth/admin:
+    post:
+      operationId: adminLogin
+      tags: [auth]
+      summary: Admin login with password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminLoginInput"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+  # ─── USERS ──────────────────────────────────────────────────────────────────
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (admin)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Paginated users
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserPage"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+
+  /users/{id}/balance:
+    patch:
+      operationId: adjustBalance
+      tags: [users]
+      summary: Adjust user balance (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BalanceAdjustInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}/ban:
+    patch:
+      operationId: banUser
+      tags: [users]
+      summary: Ban or unban user (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BanUserInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  # ─── GAMES ──────────────────────────────────────────────────────────────────
+  /games:
+    get:
+      operationId: listGames
+      tags: [games]
+      summary: List games
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [waiting, active, finished]
+      responses:
+        "200":
+          description: Paginated games
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GamePage"
+
+  /games/current:
+    get:
+      operationId: getCurrentGame
+      tags: [games]
+      summary: Get current active or waiting game
+      responses:
+        "200":
+          description: Current game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "404":
+          description: No active game
+
+  /games/{id}:
+    get:
+      operationId: getGame
+      tags: [games]
+      summary: Get game by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Game
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Game"
+        "404":
+          description: Not found
+
+  /games/{id}/tickets:
+    post:
+      operationId: buyTicket
+      tags: [tickets]
+      summary: Buy a ticket for a game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "201":
+          description: Ticket purchased
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ticket"
+        "400":
+          description: Game not accepting tickets or insufficient balance
+    get:
+      operationId: getMyGameTickets
+      tags: [tickets]
+      summary: Get current user tickets for a game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ticket"
+
+  /games/{id}/claim:
+    post:
+      operationId: claimBingo
+      tags: [games]
+      summary: Claim bingo for a game
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BingoClaimInput"
+      responses:
+        "200":
+          description: Claim result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BingoClaimResult"
+        "400":
+          description: Invalid claim
+
+  # ─── TICKETS ────────────────────────────────────────────────────────────────
+  /tickets:
+    get:
+      operationId: listMyTickets
+      tags: [tickets]
+      summary: Get all tickets for current user
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Paginated tickets
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketPage"
+
+  # ─── DEPOSITS ───────────────────────────────────────────────────────────────
+  /deposits:
+    get:
+      operationId: listDeposits
+      tags: [transactions]
+      summary: List deposits (admin gets all, user gets own)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: Paginated deposits
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DepositPage"
+    post:
+      operationId: createDeposit
+      tags: [transactions]
+      summary: Submit a deposit request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DepositInput"
+      responses:
+        "201":
+          description: Deposit created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deposit"
+
+  /deposits/{id}/approve:
+    patch:
+      operationId: approveDeposit
+      tags: [transactions]
+      summary: Approve a deposit (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Approved deposit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deposit"
+
+  /deposits/{id}/reject:
+    patch:
+      operationId: rejectDeposit
+      tags: [transactions]
+      summary: Reject a deposit (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectInput"
+      responses:
+        "200":
+          description: Rejected deposit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deposit"
+
+  # ─── WITHDRAWALS ────────────────────────────────────────────────────────────
+  /withdrawals:
+    get:
+      operationId: listWithdrawals
+      tags: [transactions]
+      summary: List withdrawals (admin gets all, user gets own)
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, completed, rejected]
+      responses:
+        "200":
+          description: Paginated withdrawals
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WithdrawalPage"
+    post:
+      operationId: createWithdrawal
+      tags: [transactions]
+      summary: Submit a withdrawal request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WithdrawalInput"
+      responses:
+        "201":
+          description: Withdrawal created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+        "400":
+          description: Insufficient balance
+
+  /withdrawals/{id}/approve:
+    patch:
+      operationId: approveWithdrawal
+      tags: [transactions]
+      summary: Approve a withdrawal (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Approved withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  /withdrawals/{id}/complete:
+    patch:
+      operationId: completeWithdrawal
+      tags: [transactions]
+      summary: Mark withdrawal as completed (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Completed withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  /withdrawals/{id}/reject:
+    patch:
+      operationId: rejectWithdrawal
+      tags: [transactions]
+      summary: Reject a withdrawal (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectInput"
+      responses:
+        "200":
+          description: Rejected withdrawal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Withdrawal"
+
+  # ─── LEADERBOARD ────────────────────────────────────────────────────────────
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [leaderboard]
+      summary: Get leaderboard
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Leaderboard entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
+  # ─── SETTINGS ───────────────────────────────────────────────────────────────
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get house settings
+      responses:
+        "200":
+          description: House settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseSettings"
+    patch:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update house settings (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseSettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HouseSettings"
+
+  # ─── ANNOUNCEMENTS ──────────────────────────────────────────────────────────
+  /announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [announcements]
+      summary: List announcements
+      responses:
+        "200":
+          description: Announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Announcement"
+    post:
+      operationId: createAnnouncement
+      tags: [announcements]
+      summary: Create announcement (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementInput"
+      responses:
+        "201":
+          description: Created announcement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+
+  /announcements/{id}:
+    delete:
+      operationId: deleteAnnouncement
+      tags: [announcements]
+      summary: Delete announcement (admin)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ─── DASHBOARD ──────────────────────────────────────────────────────────────
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get admin dashboard statistics
+      responses:
+        "200":
+          description: Dashboard statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /stats/me:
+    get:
+      operationId: getMyStats
+      tags: [users]
+      summary: Get statistics for current user
+      responses:
+        "200":
+          description: User stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserStats"
+
 components:
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
 
+    # ─── AUTH ─────────────────────────────────────────────────────────────────
+    TelegramAuthInput:
+      type: object
+      required: [initData]
+      properties:
+        initData: { type: string }
+
+    AdminLoginInput:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string }
+
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user:
+          $ref: "#/components/schemas/User"
+
+    # ─── USER ─────────────────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, telegramId, username, firstName, balance, role, isBanned, createdAt]
+      properties:
+        id: { type: integer }
+        telegramId: { type: string }
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: ["string", "null"] }
+        avatarUrl: { type: ["string", "null"] }
+        balance: { type: number }
+        totalWinnings: { type: number }
+        totalGames: { type: integer }
+        totalWins: { type: integer }
+        role: { type: string, enum: [player, admin] }
+        isBanned: { type: boolean }
+        referralCode: { type: string }
+        referredBy: { type: ["integer", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    UserPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    BalanceAdjustInput:
+      type: object
+      required: [amount, reason]
+      properties:
+        amount: { type: number }
+        reason: { type: string }
+
+    BanUserInput:
+      type: object
+      required: [banned]
+      properties:
+        banned: { type: boolean }
+
+    UserStats:
+      type: object
+      required: [totalGames, totalWins, totalWinnings, totalSpent, winRate]
+      properties:
+        totalGames: { type: integer }
+        totalWins: { type: integer }
+        totalWinnings: { type: number }
+        totalSpent: { type: number }
+        winRate: { type: number }
+
+    # ─── GAME ─────────────────────────────────────────────────────────────────
+    Game:
+      type: object
+      required: [id, status, ticketPrice, totalPot, houseFee, prizePool, houseEarnings, drawnNumbers, playerCount, createdAt]
+      properties:
+        id: { type: integer }
+        status: { type: string, enum: [waiting, active, finished] }
+        ticketPrice: { type: number }
+        totalPot: { type: number }
+        houseFee: { type: number }
+        prizePool: { type: number }
+        houseEarnings: { type: number }
+        drawnNumbers: { type: array, items: { type: integer } }
+        playerCount: { type: integer }
+        winnerId: { type: ["integer", "null"] }
+        winnerUsername: { type: ["string", "null"] }
+        winPattern: { type: ["string", "null"] }
+        startedAt: { type: ["string", "null"], format: date-time }
+        endedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    GamePage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Game"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    # ─── TICKET ───────────────────────────────────────────────────────────────
+    Ticket:
+      type: object
+      required: [id, gameId, userId, card, markedNumbers, isWinner, purchasedAt]
+      properties:
+        id: { type: integer }
+        gameId: { type: integer }
+        userId: { type: integer }
+        card:
+          type: array
+          items:
+            type: array
+            items: { type: integer }
+        markedNumbers:
+          type: array
+          items: { type: integer }
+        isWinner: { type: boolean }
+        prizeAmount: { type: ["number", "null"] }
+        purchasedAt: { type: string, format: date-time }
+
+    TicketPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ticket"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    BingoClaimInput:
+      type: object
+      required: [ticketId]
+      properties:
+        ticketId: { type: integer }
+
+    BingoClaimResult:
+      type: object
+      required: [valid, message]
+      properties:
+        valid: { type: boolean }
+        message: { type: string }
+        prizeAmount: { type: ["number", "null"] }
+        pattern: { type: ["string", "null"] }
+
+    # ─── DEPOSIT ──────────────────────────────────────────────────────────────
+    Deposit:
+      type: object
+      required: [id, userId, amount, status, telebirrNumber, transactionId, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        username: { type: ["string", "null"] }
+        amount: { type: number }
+        status: { type: string, enum: [pending, approved, rejected] }
+        telebirrNumber: { type: string }
+        transactionId: { type: string }
+        screenshotUrl: { type: ["string", "null"] }
+        rejectionReason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    DepositPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Deposit"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    DepositInput:
+      type: object
+      required: [amount, telebirrNumber, transactionId]
+      properties:
+        amount: { type: number, minimum: 1 }
+        telebirrNumber: { type: string }
+        transactionId: { type: string }
+        screenshotUrl: { type: string }
+
+    # ─── WITHDRAWAL ───────────────────────────────────────────────────────────
+    Withdrawal:
+      type: object
+      required: [id, userId, amount, status, telebirrNumber, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        username: { type: ["string", "null"] }
+        amount: { type: number }
+        status: { type: string, enum: [pending, approved, completed, rejected] }
+        telebirrNumber: { type: string }
+        rejectionReason: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    WithdrawalPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Withdrawal"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    WithdrawalInput:
+      type: object
+      required: [amount, telebirrNumber]
+      properties:
+        amount: { type: number, minimum: 1 }
+        telebirrNumber: { type: string }
+
+    RejectInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    # ─── LEADERBOARD ──────────────────────────────────────────────────────────
+    LeaderboardEntry:
+      type: object
+      required: [rank, userId, username, totalWinnings, totalWins]
+      properties:
+        rank: { type: integer }
+        userId: { type: integer }
+        username: { type: string }
+        firstName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        totalWinnings: { type: number }
+        totalWins: { type: integer }
+
+    # ─── SETTINGS ─────────────────────────────────────────────────────────────
+    HouseSettings:
+      type: object
+      required: [id, houseFeePct, ticketPrice, drawIntervalMs, countdownSecs, minPlayers, maxPlayers, updatedAt]
+      properties:
+        id: { type: integer }
+        houseFeePct: { type: number, description: "House fee percentage (default 30)" }
+        ticketPrice: { type: number }
+        drawIntervalMs: { type: integer, description: "Milliseconds between number draws" }
+        countdownSecs: { type: integer, description: "Lobby countdown seconds" }
+        minPlayers: { type: integer }
+        maxPlayers: { type: integer }
+        adminTelebirrNumber: { type: string }
+        updatedAt: { type: string, format: date-time }
+
+    HouseSettingsUpdate:
+      type: object
+      properties:
+        houseFeePct: { type: number, minimum: 0, maximum: 100 }
+        ticketPrice: { type: number, minimum: 1 }
+        drawIntervalMs: { type: integer, minimum: 1000 }
+        countdownSecs: { type: integer, minimum: 10 }
+        minPlayers: { type: integer, minimum: 1 }
+        maxPlayers: { type: integer }
+        adminTelebirrNumber: { type: string }
+
+    # ─── ANNOUNCEMENT ─────────────────────────────────────────────────────────
+    Announcement:
+      type: object
+      required: [id, title, message, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        message: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    AnnouncementInput:
+      type: object
+      required: [title, message]
+      properties:
+        title: { type: string }
+        message: { type: string }
+
+    # ─── DASHBOARD ────────────────────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalRevenue, houseEarnings, prizePoolTotal, dailyProfit, weeklyProfit, monthlyProfit, totalTicketsSold, avgPlayersPerGame, totalUsers, activeGames, pendingDeposits, pendingWithdrawals]
+      properties:
+        totalRevenue: { type: number }
+        houseEarnings: { type: number }
+        prizePoolTotal: { type: number }
+        dailyProfit: { type: number }
+        weeklyProfit: { type: number }
+        monthlyProfit: { type: number }
+        totalTicketsSold: { type: integer }
+        avgPlayersPerGame: { type: number }
+        totalUsers: { type: integer }
+        activeGames: { type: integer }
+        pendingDeposits: { type: integer }
+        pendingWithdrawals: { type: integer }

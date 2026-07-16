@@ -1,0 +1,283 @@
+import { Router, type IRouter } from "express";
+import { eq, desc, count, and, ne } from "drizzle-orm";
+import { db, gamesTable, ticketsTable, usersTable, houseSettingsTable } from "@workspace/db";
+import { requireAuth } from "../middlewares/auth";
+import {
+  ListGamesQueryParams,
+  GetGameParams,
+  BuyTicketParams,
+  ClaimBingoParams,
+  ClaimBingoBody,
+} from "@workspace/api-zod";
+import { generateCard, validateBingo } from "../lib/bingo";
+import { getIo } from "../lib/socket";
+
+const router: IRouter = Router();
+
+function formatGame(game: typeof gamesTable.$inferSelect, winnerUsername?: string | null) {
+  return {
+    id: game.id,
+    status: game.status,
+    ticketPrice: parseFloat(String(game.ticketPrice)),
+    totalPot: parseFloat(String(game.totalPot)),
+    houseFee: parseFloat(String(game.houseFee)),
+    prizePool: parseFloat(String(game.prizePool)),
+    houseEarnings: parseFloat(String(game.houseEarnings)),
+    drawnNumbers: (game.drawnNumbers as number[]) ?? [],
+    playerCount: game.playerCount,
+    winnerId: game.winnerId,
+    winnerUsername: winnerUsername ?? null,
+    winPattern: game.winPattern,
+    startedAt: game.startedAt?.toISOString() ?? null,
+    endedAt: game.endedAt?.toISOString() ?? null,
+    createdAt: game.createdAt.toISOString(),
+  };
+}
+
+function formatTicket(ticket: typeof ticketsTable.$inferSelect) {
+  return {
+    id: ticket.id,
+    gameId: ticket.gameId,
+    userId: ticket.userId,
+    card: ticket.card as number[][],
+    markedNumbers: (ticket.markedNumbers as number[]) ?? [],
+    isWinner: ticket.isWinner,
+    prizeAmount: ticket.prizeAmount ? parseFloat(String(ticket.prizeAmount)) : null,
+    purchasedAt: ticket.purchasedAt.toISOString(),
+  };
+}
+
+// List games
+router.get("/games", async (req, res): Promise<void> => {
+  const query = ListGamesQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+  const { page = 1, limit = 10, status } = query.data;
+  const offset = (page - 1) * limit;
+  const where = status ? eq(gamesTable.status, status) : undefined;
+
+  const [games, [{ total }]] = await Promise.all([
+    db.select().from(gamesTable).where(where).orderBy(desc(gamesTable.createdAt)).limit(limit).offset(offset),
+    db.select({ total: count() }).from(gamesTable).where(where),
+  ]);
+
+  res.json({ data: games.map((g) => formatGame(g)), total: Number(total), page, limit });
+});
+
+// Get current game
+router.get("/games/current", async (_req, res): Promise<void> => {
+  const [game] = await db.select().from(gamesTable)
+    .where(ne(gamesTable.status, "finished"))
+    .orderBy(desc(gamesTable.createdAt))
+    .limit(1);
+
+  if (!game) {
+    res.status(404).json({ error: "No active game" });
+    return;
+  }
+
+  let winnerUsername: string | null = null;
+  if (game.winnerId) {
+    const [winner] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, game.winnerId));
+    winnerUsername = winner?.username ?? null;
+  }
+  res.json(formatGame(game, winnerUsername));
+});
+
+// Get game by ID
+router.get("/games/:id", async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game) {
+    res.status(404).json({ error: "Game not found" });
+    return;
+  }
+
+  let winnerUsername: string | null = null;
+  if (game.winnerId) {
+    const [winner] = await db.select({ username: usersTable.username }).from(usersTable).where(eq(usersTable.id, game.winnerId));
+    winnerUsername = winner?.username ?? null;
+  }
+  res.json(formatGame(game, winnerUsername));
+});
+
+// Buy ticket
+router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> => {
+  const params = BuyTicketParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game) {
+    res.status(404).json({ error: "Game not found" });
+    return;
+  }
+  if (game.status !== "waiting") {
+    res.status(400).json({ error: "Game is not accepting tickets" });
+    return;
+  }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
+  const ticketPrice = parseFloat(String(game.ticketPrice));
+  const balance = parseFloat(String(user.balance));
+
+  if (balance < ticketPrice) {
+    res.status(400).json({ error: "Insufficient balance" });
+    return;
+  }
+
+  // Check if user already has a ticket for this game
+  const [existing] = await db.select().from(ticketsTable).where(
+    and(eq(ticketsTable.gameId, params.data.id), eq(ticketsTable.userId, req.user!.userId))
+  );
+  if (existing) {
+    res.status(400).json({ error: "Already have a ticket for this game" });
+    return;
+  }
+
+  const card = generateCard();
+  const houseFeePct = parseFloat(String(game.houseFee));
+  const newTotalPot = parseFloat(String(game.totalPot)) + ticketPrice;
+  const newHouseEarnings = newTotalPot * (houseFeePct / 100);
+  const newPrizePool = newTotalPot - newHouseEarnings;
+
+  const [[ticket]] = await Promise.all([
+    db.insert(ticketsTable).values({
+      gameId: params.data.id,
+      userId: req.user!.userId,
+      card,
+      markedNumbers: [],
+      isWinner: false,
+    }).returning(),
+    db.update(usersTable).set({
+      balance: String(balance - ticketPrice),
+      totalGames: user.totalGames + 1,
+    }).where(eq(usersTable.id, req.user!.userId)),
+    db.update(gamesTable).set({
+      totalPot: String(newTotalPot),
+      prizePool: String(newPrizePool),
+      houseEarnings: String(newHouseEarnings),
+      playerCount: game.playerCount + 1,
+    }).where(eq(gamesTable.id, params.data.id)),
+  ]);
+
+  // Emit player joined event
+  const io = getIo();
+  if (io) {
+    const [updatedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+    io.emit("playerJoined", { playerCount: updatedGame.playerCount });
+    io.emit("gameUpdate", { game: formatGame(updatedGame) });
+  }
+
+  res.status(201).json(formatTicket(ticket));
+});
+
+// Get user's tickets for a game
+router.get("/games/:id/tickets", requireAuth, async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const tickets = await db.select().from(ticketsTable).where(
+    and(eq(ticketsTable.gameId, params.data.id), eq(ticketsTable.userId, req.user!.userId))
+  );
+  res.json(tickets.map(formatTicket));
+});
+
+// Claim bingo
+router.post("/games/:id/claim", requireAuth, async (req, res): Promise<void> => {
+  const params = ClaimBingoParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const body = ClaimBingoBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game || game.status !== "active") {
+    res.status(400).json({ error: "Game is not active" });
+    return;
+  }
+  if (game.winnerId) {
+    res.status(400).json({ error: "Game already has a winner" });
+    return;
+  }
+
+  const [ticket] = await db.select().from(ticketsTable).where(
+    and(eq(ticketsTable.id, body.data.ticketId), eq(ticketsTable.userId, req.user!.userId))
+  );
+  if (!ticket || ticket.gameId !== params.data.id) {
+    res.status(400).json({ error: "Ticket not found" });
+    return;
+  }
+
+  const drawnNumbers = (game.drawnNumbers as number[]) ?? [];
+  const card = ticket.card as number[][];
+  const result = validateBingo(card, drawnNumbers);
+
+  if (!result.valid) {
+    res.json({ valid: false, message: "Not a valid bingo yet", prizeAmount: null, pattern: null });
+    return;
+  }
+
+  const prizeAmount = parseFloat(String(game.prizePool));
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId));
+
+  await Promise.all([
+    db.update(ticketsTable).set({ isWinner: true, prizeAmount: String(prizeAmount) }).where(eq(ticketsTable.id, ticket.id)),
+    db.update(gamesTable).set({ status: "finished", winnerId: req.user!.userId, winPattern: result.pattern, endedAt: new Date() }).where(eq(gamesTable.id, params.data.id)),
+    db.update(usersTable).set({
+      balance: String(parseFloat(String(user.balance)) + prizeAmount),
+      totalWinnings: String(parseFloat(String(user.totalWinnings)) + prizeAmount),
+      totalWins: user.totalWins + 1,
+    }).where(eq(usersTable.id, req.user!.userId)),
+  ]);
+
+  // Emit winner event
+  const io = getIo();
+  if (io) {
+    const [finishedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+    io.emit("bingoWinner", {
+      winner: { username: user.username, prizeAmount, pattern: result.pattern },
+    });
+    io.emit("gameFinished", { game: formatGame(finishedGame, user.username) });
+  }
+
+  // Create next game after a short delay
+  setTimeout(async () => {
+    const [settings] = await db.select().from(houseSettingsTable).limit(1);
+    const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
+    const houseFeePct = settings ? parseFloat(String(settings.houseFeePct)) : 30;
+    const [newGame] = await db.insert(gamesTable).values({
+      status: "waiting",
+      ticketPrice: String(ticketPrice),
+      houseFee: String(houseFeePct),
+      totalPot: "0",
+      prizePool: "0",
+      houseEarnings: "0",
+      drawnNumbers: [],
+      playerCount: 0,
+    }).returning();
+    const io2 = getIo();
+    if (io2) {
+      io2.emit("gameUpdate", { game: formatGame(newGame) });
+    }
+  }, 10000);
+
+  res.json({ valid: true, message: "BINGO! You won!", prizeAmount, pattern: result.pattern });
+});
+
+export default router;

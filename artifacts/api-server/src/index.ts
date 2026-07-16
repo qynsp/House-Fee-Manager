@@ -1,5 +1,8 @@
+import { createServer } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
+import { initSocket } from "./lib/socket";
+import { startGameEngine } from "./lib/game-engine";
 
 const rawPort = process.env["PORT"];
 
@@ -15,11 +18,14 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-app.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
-  }
+const httpServer = createServer(app);
+initSocket(httpServer);
 
+httpServer.listen(port, async () => {
   logger.info({ port }, "Server listening");
+  try {
+    await startGameEngine();
+  } catch (err) {
+    logger.error({ err }, "Failed to start game engine");
+  }
 });
