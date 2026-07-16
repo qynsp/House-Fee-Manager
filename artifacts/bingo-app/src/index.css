@@ -54,36 +54,42 @@
 }
 
 :root {
-  /* Default to dark mode anyway, but provide a light mode just in case */
-  --background: 240 10% 98%;
-  --foreground: 240 10% 10%;
-  --border: 240 10% 90%;
-  --input: 240 10% 90%;
-  --ring: 186 100% 40%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 10% 10%;
-  --card-border: 240 10% 90%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 10%;
-  --popover-border: 240 10% 90%;
-  --primary: 186 100% 40%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 280 100% 60%;
+  --background: 230 25% 7%;
+  --foreground: 0 0% 100%;
+  --border: 230 25% 15%;
+  --input: 230 25% 15%;
+  --ring: 186 100% 50%;
+
+  --card: 230 25% 10%;
+  --card-foreground: 0 0% 100%;
+  --card-border: 230 25% 18%;
+
+  --popover: 230 25% 10%;
+  --popover-foreground: 0 0% 100%;
+  --popover-border: 230 25% 18%;
+
+  --primary: 186 100% 50%;
+  --primary-foreground: 230 25% 7%;
+
+  --secondary: 280 100% 65%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 240 10% 90%;
-  --muted-foreground: 240 10% 40%;
-  --accent: 320 100% 55%;
+
+  --muted: 230 25% 15%;
+  --muted-foreground: 230 10% 65%;
+
+  --accent: 320 100% 60%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 84% 60%;
+
+  --destructive: 350 100% 60%;
   --destructive-foreground: 0 0% 100%;
-  
-  --sidebar: 240 10% 95%;
-  --sidebar-foreground: 240 10% 10%;
-  --sidebar-border: 240 10% 90%;
-  --sidebar-primary: 186 100% 40%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 240 10% 90%;
-  --sidebar-accent-foreground: 240 10% 10%;
+
+  --sidebar: 230 25% 9%;
+  --sidebar-foreground: 0 0% 100%;
+  --sidebar-border: 230 25% 15%;
+  --sidebar-primary: 186 100% 50%;
+  --sidebar-primary-foreground: 230 25% 7%;
+  --sidebar-accent: 230 25% 15%;
+  --sidebar-accent-foreground: 0 0% 100%;
 
   --app-font-sans: 'Outfit', sans-serif;
   --app-font-serif: Georgia, serif;
