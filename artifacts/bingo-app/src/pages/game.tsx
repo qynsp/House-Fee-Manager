@@ -68,7 +68,7 @@ export default function GameLive({ params }: { params: { id: string } }) {
 
   if (!game) return <div>Game not found</div>
 
-  const myTickets = ticketsPage?.data || []
+  const myTickets = Array.isArray(ticketsPage) ? ticketsPage : (ticketsPage as any)?.data || []
   
   // Create board grid 1-75
   const boardNumbers = Array.from({ length: 75 }, (_, i) => i + 1)
