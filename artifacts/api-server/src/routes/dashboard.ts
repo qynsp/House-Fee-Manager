@@ -33,7 +33,7 @@ router.get("/dashboard/stats", requireAdmin, async (_req, res): Promise<void> =>
       gameCount: count(),
     }).from(gamesTable).where(eq(gamesTable.status, "finished")),
     db.select({
-      houseEarnings: sum(gamesTable.houseEarnings),
+      houseEarnings: gamesTable.houseEarnings,
       createdAt: gamesTable.createdAt,
     }).from(gamesTable).where(eq(gamesTable.status, "finished")),
   ]);

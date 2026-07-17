@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, count, and, ne } from "drizzle-orm";
 import { db, gamesTable, ticketsTable, usersTable, houseSettingsTable } from "@workspace/db";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import {
   ListGamesQueryParams,
   GetGameParams,
@@ -322,6 +322,173 @@ router.post("/games/:id/claim", requireAuth, async (req, res): Promise<void> => 
   }, 10000);
 
   res.json({ valid: true, message: "BINGO! You won!", prizeAmount, pattern: result.pattern });
+});
+
+// ─── ADMIN GAME CONTROLS ─────────────────────────────────────────────────────
+
+// Get all tickets for a game (admin)
+router.get("/games/:id/all-tickets", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const tickets = await db
+    .select({
+      id: ticketsTable.id,
+      gameId: ticketsTable.gameId,
+      userId: ticketsTable.userId,
+      cartelaNumber: ticketsTable.cartelaNumber,
+      card: ticketsTable.card,
+      markedNumbers: ticketsTable.markedNumbers,
+      isWinner: ticketsTable.isWinner,
+      prizeAmount: ticketsTable.prizeAmount,
+      purchasedAt: ticketsTable.purchasedAt,
+      username: usersTable.username,
+    })
+    .from(ticketsTable)
+    .leftJoin(usersTable, eq(ticketsTable.userId, usersTable.id))
+    .where(eq(ticketsTable.gameId, params.data.id));
+
+  res.json(tickets.map(t => ({
+    ...formatTicket(t as typeof ticketsTable.$inferSelect),
+    username: t.username ?? null,
+  })));
+});
+
+// Stop a game (admin) — marks finished with no winner, creates next game
+router.post("/games/:id/stop", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+  if (game.status === "finished") { res.status(400).json({ error: "Game already finished" }); return; }
+
+  const [stoppedGame] = await db
+    .update(gamesTable)
+    .set({ status: "finished", endedAt: new Date() })
+    .where(eq(gamesTable.id, params.data.id))
+    .returning();
+
+  const io = getIo();
+  if (io) {
+    io.emit("gameFinished", { game: formatGame(stoppedGame) });
+  }
+
+  // Create next waiting game
+  setTimeout(async () => {
+    const [settings] = await db.select().from(houseSettingsTable).limit(1);
+    const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
+    const houseFeePct = settings ? parseFloat(String(settings.houseFeePct)) : 30;
+    const [newGame] = await db.insert(gamesTable).values({
+      status: "waiting",
+      ticketPrice: String(ticketPrice),
+      houseFee: String(houseFeePct),
+      totalPot: "0",
+      prizePool: "0",
+      houseEarnings: "0",
+      drawnNumbers: [],
+      playerCount: 0,
+    }).returning();
+    const io2 = getIo();
+    if (io2) io2.emit("gameUpdate", { game: formatGame(newGame) });
+  }, 3000);
+
+  res.json({ message: "Game stopped", game: formatGame(stoppedGame) });
+});
+
+// Restart a game (admin) — resets drawn numbers and status to waiting
+router.post("/games/:id/restart", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+
+  const [restarted] = await db
+    .update(gamesTable)
+    .set({
+      status: "waiting",
+      drawnNumbers: [],
+      winnerId: null,
+      winPattern: null,
+      startedAt: null,
+      endedAt: null,
+    })
+    .where(eq(gamesTable.id, params.data.id))
+    .returning();
+
+  const io = getIo();
+  if (io) io.emit("gameUpdate", { game: formatGame(restarted) });
+
+  res.json({ message: "Game restarted", game: formatGame(restarted) });
+});
+
+// Force a winner (admin) — picks a ticket as the winner
+const ForceWinnerBodySchema = z.object({ ticketId: z.number().int().positive() });
+
+router.post("/games/:id/force-winner", requireAdmin, async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const body = ForceWinnerBodySchema.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: "ticketId is required" }); return; }
+
+  const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+  if (!game) { res.status(404).json({ error: "Game not found" }); return; }
+  if (game.status === "finished") { res.status(400).json({ error: "Game already finished" }); return; }
+
+  const [ticket] = await db
+    .select()
+    .from(ticketsTable)
+    .where(and(eq(ticketsTable.id, body.data.ticketId), eq(ticketsTable.gameId, params.data.id)));
+  if (!ticket) { res.status(404).json({ error: "Ticket not found in this game" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, ticket.userId));
+  const prizeAmount = parseFloat(String(game.prizePool));
+
+  await Promise.all([
+    db.update(ticketsTable)
+      .set({ isWinner: true, prizeAmount: String(prizeAmount) })
+      .where(eq(ticketsTable.id, ticket.id)),
+    db.update(gamesTable)
+      .set({ status: "finished", winnerId: ticket.userId, winPattern: "force_win", endedAt: new Date() })
+      .where(eq(gamesTable.id, params.data.id)),
+    db.update(usersTable)
+      .set({
+        balance: String(parseFloat(String(user.balance)) + prizeAmount),
+        totalWinnings: String(parseFloat(String(user.totalWinnings)) + prizeAmount),
+        totalWins: user.totalWins + 1,
+      })
+      .where(eq(usersTable.id, ticket.userId)),
+  ]);
+
+  const io = getIo();
+  if (io) {
+    const [finishedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
+    io.emit("bingoWinner", { winner: { username: user.username, prizeAmount, pattern: "force_win" } });
+    io.emit("gameFinished", { game: formatGame(finishedGame, user.username) });
+  }
+
+  // Create next game
+  setTimeout(async () => {
+    const [settings] = await db.select().from(houseSettingsTable).limit(1);
+    const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
+    const houseFeePct = settings ? parseFloat(String(settings.houseFeePct)) : 30;
+    const [newGame] = await db.insert(gamesTable).values({
+      status: "waiting",
+      ticketPrice: String(ticketPrice),
+      houseFee: String(houseFeePct),
+      totalPot: "0",
+      prizePool: "0",
+      houseEarnings: "0",
+      drawnNumbers: [],
+      playerCount: 0,
+    }).returning();
+    const io2 = getIo();
+    if (io2) io2.emit("gameUpdate", { game: formatGame(newGame) });
+  }, 5000);
+
+  res.json({ message: "Winner forced", ticketId: ticket.id, userId: ticket.userId, prizeAmount });
 });
 
 export default router;
