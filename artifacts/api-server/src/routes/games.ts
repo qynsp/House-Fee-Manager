@@ -9,7 +9,8 @@ import {
   ClaimBingoParams,
   ClaimBingoBody,
 } from "@workspace/api-zod";
-import { generateCard, validateBingo } from "../lib/bingo";
+import { z } from "zod";
+import { generateCardForCartela, validateBingo, TOTAL_CARTELAS } from "../lib/bingo";
 import { getIo } from "../lib/socket";
 
 const router: IRouter = Router();
@@ -39,6 +40,7 @@ function formatTicket(ticket: typeof ticketsTable.$inferSelect) {
     id: ticket.id,
     gameId: ticket.gameId,
     userId: ticket.userId,
+    cartelaNumber: ticket.cartelaNumber ?? 0,
     card: ticket.card as number[][],
     markedNumbers: (ticket.markedNumbers as number[]) ?? [],
     isWinner: ticket.isWinner,
@@ -107,6 +109,28 @@ router.get("/games/:id", async (req, res): Promise<void> => {
   res.json(formatGame(game, winnerUsername));
 });
 
+const BuyTicketBodySchema = z.object({
+  cartelaNumber: z.number().int().min(1).max(TOTAL_CARTELAS),
+});
+
+// Get cartela availability for a game
+router.get("/games/:id/cartelas", async (req, res): Promise<void> => {
+  const params = GetGameParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const tickets = await db
+    .select({ cartelaNumber: ticketsTable.cartelaNumber })
+    .from(ticketsTable)
+    .where(eq(ticketsTable.gameId, params.data.id));
+
+  res.json({
+    takenCartelas: tickets.map((t) => t.cartelaNumber).filter(Boolean),
+    total: TOTAL_CARTELAS,
+  });
+});
+
 // Buy ticket
 router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> => {
   const params = BuyTicketParams.safeParse(req.params);
@@ -114,6 +138,13 @@ router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> =
     res.status(400).json({ error: params.error.message });
     return;
   }
+
+  const body = BuyTicketBodySchema.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: "cartelaNumber (1-400) is required" });
+    return;
+  }
+  const { cartelaNumber } = body.data;
 
   const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
   if (!game) {
@@ -134,46 +165,59 @@ router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> =
     return;
   }
 
-  // Check if user already has a ticket for this game
-  const [existing] = await db.select().from(ticketsTable).where(
+  // Check user hasn't already bought 2 cartelas for this game
+  const userTickets = await db.select().from(ticketsTable).where(
     and(eq(ticketsTable.gameId, params.data.id), eq(ticketsTable.userId, req.user!.userId))
   );
-  if (existing) {
-    res.status(400).json({ error: "Already have a ticket for this game" });
+  if (userTickets.length >= 2) {
+    res.status(400).json({ error: "Maximum 2 cartelas per game" });
     return;
   }
 
-  const card = generateCard();
+  // Check chosen cartela isn't already taken
+  const [takenCartela] = await db.select().from(ticketsTable).where(
+    and(eq(ticketsTable.gameId, params.data.id), eq(ticketsTable.cartelaNumber, cartelaNumber))
+  );
+  if (takenCartela) {
+    res.status(400).json({ error: "This cartela is already taken" });
+    return;
+  }
+
+  const card = generateCardForCartela(cartelaNumber);
   const houseFeePct = parseFloat(String(game.houseFee));
   const newTotalPot = parseFloat(String(game.totalPot)) + ticketPrice;
   const newHouseEarnings = newTotalPot * (houseFeePct / 100);
   const newPrizePool = newTotalPot - newHouseEarnings;
 
+  // Only increment playerCount on the first cartela purchase
+  const isFirstTicket = userTickets.length === 0;
+
   const [[ticket]] = await Promise.all([
     db.insert(ticketsTable).values({
       gameId: params.data.id,
       userId: req.user!.userId,
+      cartelaNumber,
       card,
       markedNumbers: [],
       isWinner: false,
     }).returning(),
     db.update(usersTable).set({
       balance: String(balance - ticketPrice),
-      totalGames: user.totalGames + 1,
+      ...(isFirstTicket ? { totalGames: user.totalGames + 1 } : {}),
     }).where(eq(usersTable.id, req.user!.userId)),
     db.update(gamesTable).set({
       totalPot: String(newTotalPot),
       prizePool: String(newPrizePool),
       houseEarnings: String(newHouseEarnings),
-      playerCount: game.playerCount + 1,
+      ...(isFirstTicket ? { playerCount: game.playerCount + 1 } : {}),
     }).where(eq(gamesTable.id, params.data.id)),
   ]);
 
-  // Emit player joined event
+  // Emit events
   const io = getIo();
   if (io) {
     const [updatedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
-    io.emit("playerJoined", { playerCount: updatedGame.playerCount });
+    if (isFirstTicket) io.emit("playerJoined", { playerCount: updatedGame.playerCount });
     io.emit("gameUpdate", { game: formatGame(updatedGame) });
   }
 

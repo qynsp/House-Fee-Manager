@@ -9,8 +9,26 @@ const COLUMN_RANGES = [
   [61, 75],  // O
 ];
 
-function randRange(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+export const TOTAL_CARTELAS = 400;
+
+// Seeded PRNG (mulberry32) — deterministic per cartela number
+function createRng(seed: number) {
+  let s = seed >>> 0;
+  return function () {
+    s += 0x6d2b79f5;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function seededShuffle<T>(arr: T[], rng: () => number): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -22,26 +40,33 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-export function generateCard(): number[][] {
-  const card: number[][] = [];
+function buildCard(rng: () => number): number[][] {
+  const cols: number[][] = [];
   for (let col = 0; col < 5; col++) {
     const [min, max] = COLUMN_RANGES[col];
-    const nums: number[] = [];
-    while (nums.length < 5) {
-      const n = randRange(min, max);
-      if (!nums.includes(n)) nums.push(n);
-    }
-    card.push(nums);
+    const pool = Array.from({ length: max - min + 1 }, (_, i) => min + i);
+    const shuffled = seededShuffle(pool, rng);
+    cols.push(shuffled.slice(0, 5));
   }
-  // card[col][row] — we need card[row][col] for display
-  // Transpose so card[row][col]
+  // Transpose col[col][row] → row[row][col]
   const transposed: number[][] = [];
   for (let row = 0; row < 5; row++) {
-    transposed.push(card.map((col) => col[row]));
+    transposed.push(cols.map((col) => col[row]));
   }
-  // Set center (row=2, col=2) to 0 (FREE)
-  transposed[2][2] = 0;
+  transposed[2][2] = 0; // FREE center
   return transposed;
+}
+
+/** Generate a deterministic bingo card for cartela number 1-400 */
+export function generateCardForCartela(cartelaNumber: number): number[][] {
+  const rng = createRng(cartelaNumber * 2654435761); // large prime multiplier for spacing
+  return buildCard(rng);
+}
+
+/** Random card (legacy / fallback) */
+export function generateCard(): number[][] {
+  const rng = createRng(Math.floor(Math.random() * 0xffffffff));
+  return buildCard(rng);
 }
 
 export type WinPattern = "horizontal" | "vertical" | "diagonal" | "four_corners" | "x_pattern" | "full_house";

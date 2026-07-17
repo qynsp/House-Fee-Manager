@@ -6,6 +6,7 @@ export const ticketsTable = pgTable("tickets", {
   id: serial("id").primaryKey(),
   gameId: integer("game_id").notNull(),
   userId: integer("user_id").notNull(),
+  cartelaNumber: integer("cartela_number").notNull().default(0),
   card: jsonb("card").notNull().$type<number[][]>(),
   markedNumbers: jsonb("marked_numbers").notNull().$type<number[]>().default([]),
   isWinner: boolean("is_winner").notNull().default(false),

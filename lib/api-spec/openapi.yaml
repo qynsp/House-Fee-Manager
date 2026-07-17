@@ -254,16 +254,40 @@ paths:
         "404":
           description: Not found
 
-  /games/{id}/tickets:
-    post:
-      operationId: buyTicket
+  /games/{id}/cartelas:
+    get:
+      operationId: getGameCartelas
       tags: [tickets]
-      summary: Buy a ticket for a game
+      summary: Get cartela availability for a game (which are taken)
       parameters:
         - name: id
           in: path
           required: true
           schema: { type: integer }
+      responses:
+        "200":
+          description: Cartela availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CartelaAvailability"
+
+  /games/{id}/tickets:
+    post:
+      operationId: buyTicket
+      tags: [tickets]
+      summary: Buy a ticket for a game (up to 2 per game)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuyTicketInput"
       responses:
         "201":
           description: Ticket purchased
@@ -772,14 +796,33 @@ components:
         page: { type: integer }
         limit: { type: integer }
 
+    BuyTicketInput:
+      type: object
+      required: [cartelaNumber]
+      properties:
+        cartelaNumber:
+          type: integer
+          minimum: 1
+          maximum: 400
+
+    CartelaAvailability:
+      type: object
+      required: [takenCartelas, total]
+      properties:
+        takenCartelas:
+          type: array
+          items: { type: integer }
+        total: { type: integer }
+
     # ─── TICKET ───────────────────────────────────────────────────────────────
     Ticket:
       type: object
-      required: [id, gameId, userId, card, markedNumbers, isWinner, purchasedAt]
+      required: [id, gameId, userId, cartelaNumber, card, markedNumbers, isWinner, purchasedAt]
       properties:
         id: { type: integer }
         gameId: { type: integer }
         userId: { type: integer }
+        cartelaNumber: { type: integer }
         card:
           type: array
           items:

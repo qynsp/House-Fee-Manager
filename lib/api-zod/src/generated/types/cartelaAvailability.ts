@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RejectInput {
-  reason: string;
+export interface CartelaAvailability {
+  takenCartelas: number[];
+  total: number;
 }

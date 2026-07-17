@@ -6,6 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface RejectInput {
-  reason: string;
+export interface BuyTicketInput {
+  /**
+     * @minimum 1
+     * @maximum 400
+     */
+  cartelaNumber: number;
 }
