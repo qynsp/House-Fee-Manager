@@ -15,8 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 export default function GameLive({ params }: { params: { id: string } }) {
   const gameId = parseInt(params.id)
   const [, setLocation] = useLocation()
-  const { data: game, isLoading: gameLoading } = useGetGame(gameId, { query: { enabled: !!gameId, queryKey: ['game', gameId] } })
-  const { data: ticketsPage, isLoading: ticketsLoading } = useGetMyGameTickets(gameId, { query: { enabled: !!gameId, queryKey: ['my-tickets', gameId] } })
+  const { data: game, isLoading: gameLoading } = useGetGame(gameId, { query: { enabled: !!gameId } })
+  const { data: ticketsPage, isLoading: ticketsLoading } = useGetMyGameTickets(gameId, { query: { enabled: !!gameId } })
   const claimBingo = useClaimBingo()
   const queryClient = useQueryClient()
   const { toast } = useToast()
