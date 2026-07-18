@@ -96,7 +96,7 @@ async function startDrawing(gameId: number) {
   }, intervalMs);
 }
 
-async function checkAndStartGame(gameId: number) {
+export async function checkAndStartGame(gameId: number) {
   const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId));
   if (!game || game.status !== "waiting") return;
 

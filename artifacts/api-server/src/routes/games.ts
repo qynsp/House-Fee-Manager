@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import { generateCardForCartela, validateBingo, TOTAL_CARTELAS } from "../lib/bingo";
 import { getIo } from "../lib/socket";
+import { checkAndStartGame } from "../lib/game-engine";
 
 const router: IRouter = Router();
 
@@ -219,6 +220,11 @@ router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> =
     const [updatedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
     if (isFirstTicket) io.emit("playerJoined", { playerCount: updatedGame.playerCount });
     io.emit("gameUpdate", { game: formatGame(updatedGame) });
+  }
+
+  // Immediately check if we have enough players to start — don't wait for the 30s poll
+  if (isFirstTicket) {
+    checkAndStartGame(params.data.id).catch(() => {});
   }
 
   res.status(201).json(formatTicket(ticket));
