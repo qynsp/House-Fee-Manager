@@ -30,6 +30,7 @@ function formatGame(game: typeof gamesTable.$inferSelect, winnerUsername?: strin
     winnerId: game.winnerId,
     winnerUsername: winnerUsername ?? null,
     winPattern: game.winPattern,
+    startingAt: game.startingAt?.toISOString() ?? null,
     startedAt: game.startedAt?.toISOString() ?? null,
     endedAt: game.endedAt?.toISOString() ?? null,
     createdAt: game.createdAt.toISOString(),
@@ -152,7 +153,7 @@ router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> =
     res.status(404).json({ error: "Game not found" });
     return;
   }
-  if (game.status !== "waiting") {
+  if (game.status !== "waiting" && game.status !== "starting") {
     res.status(400).json({ error: "Game is not accepting tickets" });
     return;
   }

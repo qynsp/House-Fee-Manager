@@ -769,7 +769,7 @@ components:
       required: [id, status, ticketPrice, totalPot, houseFee, prizePool, houseEarnings, drawnNumbers, playerCount, createdAt]
       properties:
         id: { type: integer }
-        status: { type: string, enum: [waiting, active, finished] }
+        status: { type: string, enum: [waiting, starting, active, finished] }
         ticketPrice: { type: number }
         totalPot: { type: number }
         houseFee: { type: number }
@@ -780,6 +780,7 @@ components:
         winnerId: { type: ["integer", "null"] }
         winnerUsername: { type: ["string", "null"] }
         winPattern: { type: ["string", "null"] }
+        startingAt: { type: ["string", "null"], format: date-time }
         startedAt: { type: ["string", "null"], format: date-time }
         endedAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }

@@ -4,7 +4,7 @@ import { z } from "zod/v4";
 
 export const gamesTable = pgTable("games", {
   id: serial("id").primaryKey(),
-  status: text("status", { enum: ["waiting", "active", "finished"] }).notNull().default("waiting"),
+  status: text("status", { enum: ["waiting", "starting", "active", "finished"] }).notNull().default("waiting"),
   ticketPrice: numeric("ticket_price", { precision: 12, scale: 2 }).notNull(),
   totalPot: numeric("total_pot", { precision: 12, scale: 2 }).notNull().default("0"),
   houseFee: numeric("house_fee", { precision: 5, scale: 2 }).notNull().default("30"),
@@ -14,6 +14,7 @@ export const gamesTable = pgTable("games", {
   playerCount: integer("player_count").notNull().default(0),
   winnerId: integer("winner_id"),
   winPattern: text("win_pattern"),
+  startingAt: timestamp("starting_at", { withTimezone: true }),
   startedAt: timestamp("started_at", { withTimezone: true }),
   endedAt: timestamp("ended_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

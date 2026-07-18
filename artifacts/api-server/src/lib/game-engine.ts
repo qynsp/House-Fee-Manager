@@ -1,4 +1,4 @@
-import { eq, ne } from "drizzle-orm";
+import { eq, ne, or } from "drizzle-orm";
 import { db, gamesTable, houseSettingsTable } from "@workspace/db";
 import { drawNextNumber } from "./bingo";
 import { getIo } from "./socket";
@@ -21,6 +21,7 @@ function formatGame(game: typeof gamesTable.$inferSelect, winnerUsername?: strin
     winnerId: game.winnerId,
     winnerUsername: winnerUsername ?? null,
     winPattern: game.winPattern,
+    startingAt: game.startingAt?.toISOString() ?? null,
     startedAt: game.startedAt?.toISOString() ?? null,
     endedAt: game.endedAt?.toISOString() ?? null,
     createdAt: game.createdAt.toISOString(),
@@ -35,7 +36,11 @@ async function getSettings() {
 }
 
 async function ensureWaitingGame() {
-  const [existing] = await db.select().from(gamesTable).where(ne(gamesTable.status, "finished")).limit(1);
+  const [existing] = await db
+    .select()
+    .from(gamesTable)
+    .where(ne(gamesTable.status, "finished"))
+    .limit(1);
   if (existing) return existing;
 
   const settings = await getSettings();
@@ -96,6 +101,7 @@ async function startDrawing(gameId: number) {
   }, intervalMs);
 }
 
+/** Called when a new player joins — transitions waiting→starting with a countdown. */
 export async function checkAndStartGame(gameId: number) {
   const [game] = await db.select().from(gamesTable).where(eq(gamesTable.id, gameId));
   if (!game || game.status !== "waiting") return;
@@ -103,9 +109,39 @@ export async function checkAndStartGame(gameId: number) {
   const settings = await getSettings();
   if (game.playerCount < settings.minPlayers) return;
 
+  // Enough players — enter "starting" countdown
+  const countdownMs = (settings.countdownSecs ?? 30) * 1000;
+  const startingAt = new Date(Date.now() + countdownMs);
+
+  const [startingGame] = await db.update(gamesTable)
+    .set({ status: "starting", startingAt })
+    .where(eq(gamesTable.id, gameId))
+    .returning();
+
+  const io = getIo();
+  if (io) {
+    io.emit("gameStarting", { game: formatGame(startingGame), startsInMs: countdownMs });
+    io.emit("gameUpdate", { game: formatGame(startingGame) });
+  }
+
+  logger.info({ gameId, startingAt, countdownMs }, "Game entering countdown");
+}
+
+/** Periodically fires any countdown that has expired. */
+async function tickCountdowns() {
+  const [startingGame] = await db
+    .select()
+    .from(gamesTable)
+    .where(eq(gamesTable.status, "starting"))
+    .limit(1);
+
+  if (!startingGame || !startingGame.startingAt) return;
+  if (new Date() < startingGame.startingAt) return;
+
+  // Countdown expired — go active
   const [activeGame] = await db.update(gamesTable)
     .set({ status: "active", startedAt: new Date() })
-    .where(eq(gamesTable.id, gameId))
+    .where(eq(gamesTable.id, startingGame.id))
     .returning();
 
   const io = getIo();
@@ -114,19 +150,27 @@ export async function checkAndStartGame(gameId: number) {
     io.emit("gameUpdate", { game: formatGame(activeGame) });
   }
 
-  logger.info({ gameId }, "Game started");
-  await startDrawing(gameId);
+  logger.info({ gameId: startingGame.id }, "Game started after countdown");
+  await startDrawing(startingGame.id);
 }
 
 export async function startGameEngine() {
   logger.info("Game engine starting");
 
-  // Ensure there's always a waiting game
   const game = await ensureWaitingGame();
 
-  // Check every 30 seconds if we should start a game
+  // Check countdown expirations every 2 seconds (fast tick)
   setInterval(async () => {
-    const [current] = await db.select().from(gamesTable).where(ne(gamesTable.status, "finished")).limit(1);
+    await tickCountdowns();
+  }, 2000);
+
+  // Safety net: every 30s check if a waiting game with enough players missed the transition
+  setInterval(async () => {
+    const [current] = await db
+      .select()
+      .from(gamesTable)
+      .where(ne(gamesTable.status, "finished"))
+      .limit(1);
     if (!current) {
       await ensureWaitingGame();
       return;

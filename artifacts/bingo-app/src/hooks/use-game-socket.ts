@@ -8,6 +8,7 @@ interface GameSocketEvents {
   gameUpdate: { game: Game };
   numberDrawn: { number: number; game: Game };
   bingoWinner: { winner: { username: string; prizeAmount: number; pattern: string } };
+  gameStarting: { game: Game; startsInMs: number };
   gameStarted: { game: Game };
   gameFinished: { game: Game };
   playerJoined: { playerCount: number };
@@ -54,8 +55,14 @@ export function useGameSocket() {
       setWinner(data.winner);
     });
 
+    socketInstance.on('gameStarting', (data: GameSocketEvents['gameStarting']) => {
+      queryClient.setQueryData(getGetCurrentGameQueryKey(), data.game);
+      queryClient.setQueryData(getGetGameQueryKey(data.game.id), data.game);
+    });
+
     socketInstance.on('gameStarted', (data: GameSocketEvents['gameStarted']) => {
       queryClient.setQueryData(getGetCurrentGameQueryKey(), data.game);
+      queryClient.setQueryData(getGetGameQueryKey(data.game.id), data.game);
     });
 
     socketInstance.on('gameFinished', (data: GameSocketEvents['gameFinished']) => {

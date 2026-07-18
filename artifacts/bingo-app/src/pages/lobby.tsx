@@ -89,7 +89,7 @@ export default function Lobby() {
   const { data: game, isLoading: gameLoading } = useGetCurrentGame()
   const { data: settings } = useGetSettings()
   const { data: cartelaData } = useGetGameCartelas(game?.id ?? 0, {
-    query: { enabled: !!game?.id && game?.status === 'waiting', refetchInterval: 5000 },
+    query: { enabled: !!game?.id && (game?.status === 'waiting' || game?.status === 'starting'), refetchInterval: 5000 },
   })
   const buyTicket = useBuyTicket()
   const queryClient = useQueryClient()
@@ -100,17 +100,20 @@ export default function Lobby() {
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null)
   useEffect(() => {
-    if (game?.status === 'waiting' && game.startedAt && settings?.countdownSecs) {
-      const start = new Date(game.startedAt).getTime()
-      const end = start + settings.countdownSecs * 1000
-      const interval = setInterval(() => {
+    if (game?.status === 'starting' && game.startingAt) {
+      const end = new Date(game.startingAt).getTime()
+      const tick = () => {
         const diff = Math.max(0, Math.floor((end - Date.now()) / 1000))
         setTimeLeft(diff)
         if (diff <= 0) clearInterval(interval)
-      }, 1000)
+      }
+      tick()
+      const interval = setInterval(tick, 1000)
       return () => clearInterval(interval)
+    } else {
+      setTimeLeft(null)
     }
-  }, [game?.status, game?.startedAt, settings?.countdownSecs])
+  }, [game?.status, game?.startingAt])
 
   // Cartela selection state
   const [selected, setSelected] = useState<number[]>([])
@@ -186,8 +189,25 @@ export default function Lobby() {
     <div className="space-y-5 pt-4 pb-32">
       <div className="text-center space-y-1 mb-2">
         <h1 className="text-4xl font-black text-primary glow-text uppercase tracking-widest">Neon Bingo</h1>
-        <p className="text-muted-foreground font-mono text-sm">Next round starting soon</p>
+        <p className="text-muted-foreground font-mono text-sm">
+          {game?.status === 'starting' ? '🟡 Round locking in — buy now!' : 'Next round starting soon'}
+        </p>
       </div>
+
+      {/* Starting countdown banner */}
+      {game?.status === 'starting' && timeLeft !== null && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="glass-panel rounded-xl p-4 border border-secondary/50 text-center space-y-1"
+        >
+          <div className="text-xs font-bold uppercase tracking-widest text-secondary">Game starts in</div>
+          <div className="text-5xl font-black font-mono text-secondary glow-secondary tabular-nums">
+            {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+          </div>
+          <div className="text-xs text-muted-foreground">You can still buy cartelas below</div>
+        </motion.div>
+      )}
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
