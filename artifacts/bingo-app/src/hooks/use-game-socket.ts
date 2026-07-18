@@ -42,8 +42,12 @@ export function useGameSocket() {
 
     socketInstance.on('numberDrawn', (data: GameSocketEvents['numberDrawn']) => {
       setLastDrawnNumber(data.number);
+      // Directly update cache (instant UI update)
       queryClient.setQueryData(getGetCurrentGameQueryKey(), data.game);
       queryClient.setQueryData(getGetGameQueryKey(data.game.id), data.game);
+      // Also invalidate so any mismatched query keys get refetched too
+      queryClient.invalidateQueries({ queryKey: ['/api/games/' + data.game.id] });
+      queryClient.invalidateQueries({ queryKey: getGetCurrentGameQueryKey() });
     });
 
     socketInstance.on('bingoWinner', (data: GameSocketEvents['bingoWinner']) => {
