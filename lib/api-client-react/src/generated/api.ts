@@ -45,6 +45,7 @@ import type {
   ListDepositsParams,
   ListGamesParams,
   ListMyTicketsParams,
+  ListTransfersParams,
   ListUsersParams,
   ListWithdrawalsParams,
   RejectInput,
@@ -52,6 +53,9 @@ import type {
   TelegramAuthInput,
   Ticket,
   TicketPage,
+  Transfer,
+  TransferInput,
+  TransferPage,
   User,
   UserPage,
   UserStats,
@@ -1973,6 +1977,161 @@ export const useRejectWithdrawal = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getRejectWithdrawalMutationOptions(options));
+    }
+
+export const getListTransfersUrl = (params?: ListTransfersParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/transfers?${stringifiedParams}` : `/api/transfers`
+}
+
+/**
+ * @summary List transfers for current user
+ */
+export const listTransfers = async (params?: ListTransfersParams, options?: RequestInit): Promise<TransferPage> => {
+
+  return customFetch<TransferPage>(getListTransfersUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTransfersQueryKey = (params?: ListTransfersParams,) => {
+    return [
+    `/api/transfers`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTransfersQueryOptions = <TData = Awaited<ReturnType<typeof listTransfers>>, TError = ErrorType<unknown>>(params?: ListTransfersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTransfers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTransfersQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTransfers>>> = ({ signal }) => listTransfers(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTransfers>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListTransfersQueryResult = NonNullable<Awaited<ReturnType<typeof listTransfers>>>
+export type ListTransfersQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List transfers for current user
+ */
+
+export function useListTransfers<TData = Awaited<ReturnType<typeof listTransfers>>, TError = ErrorType<unknown>>(
+ params?: ListTransfersParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listTransfers>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListTransfersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTransferUrl = () => {
+
+
+
+
+  return `/api/transfers`
+}
+
+/**
+ * @summary Transfer funds to another user
+ */
+export const createTransfer = async (transferInput: TransferInput, options?: RequestInit): Promise<Transfer> => {
+
+  return customFetch<Transfer>(getCreateTransferUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(transferInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTransferMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTransfer>>, TError,{data: BodyType<TransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTransfer>>, TError,{data: BodyType<TransferInput>}, TContext> => {
+
+const mutationKey = ['createTransfer'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTransfer>>, {data: BodyType<TransferInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTransfer(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTransferMutationResult = NonNullable<Awaited<ReturnType<typeof createTransfer>>>
+    export type CreateTransferMutationBody = BodyType<TransferInput>
+    export type CreateTransferMutationError = ErrorType<void>
+
+    /**
+ * @summary Transfer funds to another user
+ */
+export const useCreateTransfer = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTransfer>>, TError,{data: BodyType<TransferInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTransfer>>,
+        TError,
+        {data: BodyType<TransferInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTransferMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = (params?: GetLeaderboardParams,) => {

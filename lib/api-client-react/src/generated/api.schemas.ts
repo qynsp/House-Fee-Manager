@@ -243,6 +243,44 @@ export interface RejectInput {
   reason: string;
 }
 
+export type TransferDirection = typeof TransferDirection[keyof typeof TransferDirection];
+
+
+export const TransferDirection = {
+  sent: 'sent',
+  received: 'received',
+} as const;
+
+export interface Transfer {
+  id: number;
+  fromUserId: number;
+  /** @nullable */
+  fromUsername: string | null;
+  toUserId: number;
+  /** @nullable */
+  toUsername: string | null;
+  amount: number;
+  /** @nullable */
+  note?: string | null;
+  direction: TransferDirection;
+  createdAt: string;
+}
+
+export interface TransferPage {
+  data: Transfer[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface TransferInput {
+  recipientUsername: string;
+  /** @minimum 1 */
+  amount: number;
+  /** @maxLength 200 */
+  note?: string;
+}
+
 export interface LeaderboardEntry {
   rank: number;
   userId: number;
@@ -371,6 +409,11 @@ export const ListWithdrawalsStatus = {
   completed: 'completed',
   rejected: 'rejected',
 } as const;
+
+export type ListTransfersParams = {
+page?: number;
+limit?: number;
+};
 
 export type GetLeaderboardParams = {
 limit?: number;

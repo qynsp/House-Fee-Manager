@@ -553,6 +553,48 @@ paths:
               schema:
                 $ref: "#/components/schemas/Withdrawal"
 
+  # ─── TRANSFERS ──────────────────────────────────────────────────────────────
+  /transfers:
+    get:
+      operationId: listTransfers
+      tags: [transactions]
+      summary: List transfers for current user
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: Transfer history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransferPage"
+    post:
+      operationId: createTransfer
+      tags: [transactions]
+      summary: Transfer funds to another user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+      responses:
+        "201":
+          description: Transfer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "400":
+          description: Insufficient balance or invalid input
+        "404":
+          description: Recipient not found
+
   # ─── LEADERBOARD ────────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -981,6 +1023,41 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+
+    # ─── TRANSFER ─────────────────────────────────────────────────────────────
+    Transfer:
+      type: object
+      required: [id, fromUserId, fromUsername, toUserId, toUsername, amount, direction, createdAt]
+      properties:
+        id: { type: integer }
+        fromUserId: { type: integer }
+        fromUsername: { type: ["string", "null"] }
+        toUserId: { type: integer }
+        toUsername: { type: ["string", "null"] }
+        amount: { type: number }
+        note: { type: ["string", "null"] }
+        direction: { type: string, enum: [sent, received] }
+        createdAt: { type: string, format: date-time }
+
+    TransferPage:
+      type: object
+      required: [data, total, page, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Transfer"
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    TransferInput:
+      type: object
+      required: [recipientUsername, amount]
+      properties:
+        recipientUsername: { type: string }
+        amount: { type: number, minimum: 1 }
+        note: { type: string, maxLength: 200 }
 
     # ─── LEADERBOARD ──────────────────────────────────────────────────────────
     LeaderboardEntry:

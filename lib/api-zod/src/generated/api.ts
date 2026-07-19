@@ -634,6 +634,62 @@ export const RejectWithdrawalResponse = zod.object({
 
 
 /**
+ * @summary List transfers for current user
+ */
+export const listTransfersQueryPageDefault = 1;
+export const listTransfersQueryLimitDefault = 20;
+
+export const ListTransfersQueryParams = zod.object({
+  "page": zod.coerce.number().default(listTransfersQueryPageDefault),
+  "limit": zod.coerce.number().default(listTransfersQueryLimitDefault)
+})
+
+export const ListTransfersResponse = zod.object({
+  "data": zod.array(zod.object({
+  "id": zod.number(),
+  "fromUserId": zod.number(),
+  "fromUsername": zod.string().nullable(),
+  "toUserId": zod.number(),
+  "toUsername": zod.string().nullable(),
+  "amount": zod.number(),
+  "note": zod.string().nullish(),
+  "direction": zod.enum(['sent', 'received']),
+  "createdAt": zod.coerce.date()
+})),
+  "total": zod.number(),
+  "page": zod.number(),
+  "limit": zod.number()
+})
+
+
+/**
+ * @summary Transfer funds to another user
+ */
+
+export const createTransferBodyNoteMax = 200;
+
+
+
+export const CreateTransferBody = zod.object({
+  "recipientUsername": zod.string(),
+  "amount": zod.number().min(1),
+  "note": zod.string().max(createTransferBodyNoteMax).optional()
+})
+
+export const CreateTransferResponse = zod.object({
+  "id": zod.number(),
+  "fromUserId": zod.number(),
+  "fromUsername": zod.string().nullable(),
+  "toUserId": zod.number(),
+  "toUsername": zod.string().nullable(),
+  "amount": zod.number(),
+  "note": zod.string().nullish(),
+  "direction": zod.enum(['sent', 'received']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary Get leaderboard
  */
 export const getLeaderboardQueryLimitDefault = 20;
