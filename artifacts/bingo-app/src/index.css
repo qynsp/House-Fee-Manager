@@ -161,3 +161,10 @@
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+/* Hide Replit deployment badge */
+#replit-badge,
+[data-replit-badge],
+iframe[src*="replit.com/badge"] {
+  display: none !important;
+}
