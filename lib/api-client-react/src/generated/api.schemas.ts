@@ -252,6 +252,7 @@ export interface LeaderboardEntry {
   avatarUrl?: string | null;
   totalWinnings: number;
   totalWins: number;
+  leaderboardHidden: boolean;
 }
 
 export interface HouseSettings {
@@ -373,5 +374,14 @@ export const ListWithdrawalsStatus = {
 
 export type GetLeaderboardParams = {
 limit?: number;
+includeHidden?: boolean;
+};
+
+export type HideFromLeaderboard200 = {
+  ok?: boolean;
+};
+
+export type RestoreToLeaderboard200 = {
+  ok?: boolean;
 };
 

@@ -637,9 +637,11 @@ export const RejectWithdrawalResponse = zod.object({
  * @summary Get leaderboard
  */
 export const getLeaderboardQueryLimitDefault = 20;
+export const getLeaderboardQueryIncludeHiddenDefault = false;
 
 export const GetLeaderboardQueryParams = zod.object({
-  "limit": zod.coerce.number().default(getLeaderboardQueryLimitDefault)
+  "limit": zod.coerce.number().default(getLeaderboardQueryLimitDefault),
+  "includeHidden": zod.coerce.boolean().default(getLeaderboardQueryIncludeHiddenDefault)
 })
 
 export const GetLeaderboardResponseItem = zod.object({
@@ -649,9 +651,34 @@ export const GetLeaderboardResponseItem = zod.object({
   "firstName": zod.string().optional(),
   "avatarUrl": zod.string().nullish(),
   "totalWinnings": zod.number(),
-  "totalWins": zod.number()
+  "totalWins": zod.number(),
+  "leaderboardHidden": zod.boolean()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)
+
+
+/**
+ * @summary Hide a user from the leaderboard (admin)
+ */
+export const HideFromLeaderboardParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const HideFromLeaderboardResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
+
+
+/**
+ * @summary Restore a user to the leaderboard (admin)
+ */
+export const RestoreToLeaderboardParams = zod.object({
+  "userId": zod.coerce.number()
+})
+
+export const RestoreToLeaderboardResponse = zod.object({
+  "ok": zod.boolean().optional()
+})
 
 
 /**

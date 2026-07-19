@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Link, useLocation } from "wouter"
-import { Home, Users, Gamepad2, CreditCard, Banknote, Settings, Bell, LogOut } from "lucide-react"
+import { Home, Users, Gamepad2, CreditCard, Banknote, Settings, Bell, LogOut, Trophy } from "lucide-react"
 import { logout } from "@/lib/auth"
 
 export function AdminSidebar() {
@@ -13,6 +13,7 @@ export function AdminSidebar() {
     { href: "/admin/deposits", icon: CreditCard, label: "Deposits" },
     { href: "/admin/withdrawals", icon: Banknote, label: "Withdrawals" },
     { href: "/admin/announcements", icon: Bell, label: "Announcements" },
+    { href: "/admin/leaderboard", icon: Trophy, label: "Leaderboard" },
     { href: "/admin/settings", icon: Settings, label: "Settings" },
   ]
 

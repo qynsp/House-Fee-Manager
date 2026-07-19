@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { db, usersTable } from "@workspace/db";
 import { GetLeaderboardQueryParams } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -12,13 +13,15 @@ router.get("/leaderboard", async (req, res): Promise<void> => {
     return;
   }
   const limit = query.data.limit ?? 20;
+  const includeHidden = req.query.includeHidden === "true";
 
   const users = await db.select().from(usersTable)
-    .where(undefined)
     .orderBy(desc(usersTable.totalWinnings))
-    .limit(limit);
+    .limit(includeHidden ? 200 : limit);
 
-  const entries = users.map((user, index) => ({
+  const filtered = includeHidden ? users : users.filter(u => !u.leaderboardHidden);
+
+  const entries = filtered.slice(0, limit).map((user, index) => ({
     rank: index + 1,
     userId: user.id,
     username: user.username,
@@ -26,9 +29,30 @@ router.get("/leaderboard", async (req, res): Promise<void> => {
     avatarUrl: user.avatarUrl,
     totalWinnings: parseFloat(String(user.totalWinnings)),
     totalWins: user.totalWins,
+    leaderboardHidden: user.leaderboardHidden,
   }));
 
   res.json(entries);
+});
+
+router.patch("/leaderboard/:userId/hide", requireAdmin, async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "Invalid user id" });
+    return;
+  }
+  await db.update(usersTable).set({ leaderboardHidden: true }).where(eq(usersTable.id, userId));
+  res.json({ ok: true });
+});
+
+router.patch("/leaderboard/:userId/restore", requireAdmin, async (req, res): Promise<void> => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) {
+    res.status(400).json({ error: "Invalid user id" });
+    return;
+  }
+  await db.update(usersTable).set({ leaderboardHidden: false }).where(eq(usersTable.id, userId));
+  res.json({ ok: true });
 });
 
 export default router;

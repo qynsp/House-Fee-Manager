@@ -15,6 +15,7 @@ export const usersTable = pgTable("users", {
   totalWins: integer("total_wins").notNull().default(0),
   role: text("role", { enum: ["player", "admin"] }).notNull().default("player"),
   isBanned: boolean("is_banned").notNull().default(false),
+  leaderboardHidden: boolean("leaderboard_hidden").notNull().default(false),
   referralCode: text("referral_code").notNull().unique(),
   referredBy: integer("referred_by"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -563,6 +563,9 @@ paths:
         - name: limit
           in: query
           schema: { type: integer, default: 20 }
+        - name: includeHidden
+          in: query
+          schema: { type: boolean, default: false }
       responses:
         "200":
           description: Leaderboard entries
@@ -572,6 +575,46 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/LeaderboardEntry"
+
+  /leaderboard/{userId}/hide:
+    patch:
+      operationId: hideFromLeaderboard
+      tags: [leaderboard]
+      summary: Hide a user from the leaderboard (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: User hidden from leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+
+  /leaderboard/{userId}/restore:
+    patch:
+      operationId: restoreToLeaderboard
+      tags: [leaderboard]
+      summary: Restore a user to the leaderboard (admin)
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: User restored to leaderboard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
 
   # ─── SETTINGS ───────────────────────────────────────────────────────────────
   /settings:
@@ -942,7 +985,7 @@ components:
     # ─── LEADERBOARD ──────────────────────────────────────────────────────────
     LeaderboardEntry:
       type: object
-      required: [rank, userId, username, totalWinnings, totalWins]
+      required: [rank, userId, username, totalWinnings, totalWins, leaderboardHidden]
       properties:
         rank: { type: integer }
         userId: { type: integer }
@@ -951,6 +994,7 @@ components:
         avatarUrl: { type: ["string", "null"] }
         totalWinnings: { type: number }
         totalWins: { type: integer }
+        leaderboardHidden: { type: boolean }
 
     # ─── SETTINGS ─────────────────────────────────────────────────────────────
     HouseSettings:

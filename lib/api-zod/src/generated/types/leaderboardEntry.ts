@@ -15,4 +15,5 @@ export interface LeaderboardEntry {
   avatarUrl?: string | null;
   totalWinnings: number;
   totalWins: number;
+  leaderboardHidden: boolean;
 }

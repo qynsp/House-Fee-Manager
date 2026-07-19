@@ -24,7 +24,8 @@ import AdminGames from '@/pages/admin/games';
 import AdminDeposits from '@/pages/admin/deposits';
 import AdminWithdrawals from '@/pages/admin/withdrawals';
 import AdminSettings from '@/pages/admin/settings';
-import AdminAnnouncements from '@/pages/admin/announcements';
+import AdminAnnouncements from '@/pages/admin/announcements'
+import AdminLeaderboard from '@/pages/admin/leaderboard';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -100,6 +101,13 @@ function Router() {
         <ProtectedRoute adminOnly>
           <AdminLayout>
             <AdminAnnouncements />
+          </AdminLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/admin/leaderboard">
+        <ProtectedRoute adminOnly>
+          <AdminLayout>
+            <AdminLeaderboard />
           </AdminLayout>
         </ProtectedRoute>
       </Route>

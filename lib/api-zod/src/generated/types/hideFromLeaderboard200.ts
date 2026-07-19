@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type GetLeaderboardParams = {
-limit?: number;
-includeHidden?: boolean;
+export type HideFromLeaderboard200 = {
+  ok?: boolean;
 };

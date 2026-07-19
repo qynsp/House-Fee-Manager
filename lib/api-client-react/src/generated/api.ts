@@ -38,6 +38,7 @@ import type {
   GamePage,
   GetLeaderboardParams,
   HealthStatus,
+  HideFromLeaderboard200,
   HouseSettings,
   HouseSettingsUpdate,
   LeaderboardEntry,
@@ -47,6 +48,7 @@ import type {
   ListUsersParams,
   ListWithdrawalsParams,
   RejectInput,
+  RestoreToLeaderboard200,
   TelegramAuthInput,
   Ticket,
   TicketPage,
@@ -2056,6 +2058,148 @@ export function useGetLeaderboard<TData = Awaited<ReturnType<typeof getLeaderboa
 
 
 
+
+export const getHideFromLeaderboardUrl = (userId: number,) => {
+
+
+
+
+  return `/api/leaderboard/${userId}/hide`
+}
+
+/**
+ * @summary Hide a user from the leaderboard (admin)
+ */
+export const hideFromLeaderboard = async (userId: number, options?: RequestInit): Promise<HideFromLeaderboard200> => {
+
+  return customFetch<HideFromLeaderboard200>(getHideFromLeaderboardUrl(userId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getHideFromLeaderboardMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hideFromLeaderboard>>, TError,{userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof hideFromLeaderboard>>, TError,{userId: number}, TContext> => {
+
+const mutationKey = ['hideFromLeaderboard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof hideFromLeaderboard>>, {userId: number}> = (props) => {
+          const {userId} = props ?? {};
+
+          return  hideFromLeaderboard(userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type HideFromLeaderboardMutationResult = NonNullable<Awaited<ReturnType<typeof hideFromLeaderboard>>>
+
+    export type HideFromLeaderboardMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Hide a user from the leaderboard (admin)
+ */
+export const useHideFromLeaderboard = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof hideFromLeaderboard>>, TError,{userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof hideFromLeaderboard>>,
+        TError,
+        {userId: number},
+        TContext
+      > => {
+      return useMutation(getHideFromLeaderboardMutationOptions(options));
+    }
+
+export const getRestoreToLeaderboardUrl = (userId: number,) => {
+
+
+
+
+  return `/api/leaderboard/${userId}/restore`
+}
+
+/**
+ * @summary Restore a user to the leaderboard (admin)
+ */
+export const restoreToLeaderboard = async (userId: number, options?: RequestInit): Promise<RestoreToLeaderboard200> => {
+
+  return customFetch<RestoreToLeaderboard200>(getRestoreToLeaderboardUrl(userId),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+
+export const getRestoreToLeaderboardMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreToLeaderboard>>, TError,{userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof restoreToLeaderboard>>, TError,{userId: number}, TContext> => {
+
+const mutationKey = ['restoreToLeaderboard'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof restoreToLeaderboard>>, {userId: number}> = (props) => {
+          const {userId} = props ?? {};
+
+          return  restoreToLeaderboard(userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RestoreToLeaderboardMutationResult = NonNullable<Awaited<ReturnType<typeof restoreToLeaderboard>>>
+
+    export type RestoreToLeaderboardMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Restore a user to the leaderboard (admin)
+ */
+export const useRestoreToLeaderboard = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof restoreToLeaderboard>>, TError,{userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof restoreToLeaderboard>>,
+        TError,
+        {userId: number},
+        TContext
+      > => {
+      return useMutation(getRestoreToLeaderboardMutationOptions(options));
+    }
 
 export const getGetSettingsUrl = () => {
 
