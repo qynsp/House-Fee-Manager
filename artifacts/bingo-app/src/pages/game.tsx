@@ -230,9 +230,7 @@ export default function GameLive({ params }: { params: { id: string } }) {
               <span className="font-bold text-primary">{winner?.username}</span> won <span className="font-mono font-bold text-secondary glow-text">${winner?.prizeAmount?.toFixed(2)}</span>!
             </DialogDescription>
           </DialogHeader>
-          <div className="mt-4 text-sm text-muted-foreground uppercase tracking-widest">
-            Pattern: {winner?.pattern}
-          </div>
+
           <Button onClick={clearWinner} className="w-full mt-6" variant="outline">Close</Button>
         </DialogContent>
       </Dialog>

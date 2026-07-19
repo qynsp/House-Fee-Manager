@@ -29,7 +29,7 @@ function formatGame(game: typeof gamesTable.$inferSelect, winnerUsername?: strin
     playerCount: game.playerCount,
     winnerId: game.winnerId,
     winnerUsername: winnerUsername ?? null,
-    winPattern: game.winPattern,
+    winPattern: game.winPattern === "force_win" ? "bingo" : game.winPattern,
     startingAt: game.startingAt?.toISOString() ?? null,
     startedAt: game.startedAt?.toISOString() ?? null,
     endedAt: game.endedAt?.toISOString() ?? null,
@@ -473,7 +473,7 @@ router.post("/games/:id/force-winner", requireAdmin, async (req, res): Promise<v
   if (io) {
     const [finishedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
     const room = `game:${params.data.id}`;
-    io.to(room).emit("bingoWinner", { winner: { username: user.username, prizeAmount, pattern: "force_win" } });
+    io.to(room).emit("bingoWinner", { winner: { username: user.username, prizeAmount, pattern: "bingo" } });
     io.to(room).emit("gameFinished", { game: formatGame(finishedGame, user.username) });
   }
 
