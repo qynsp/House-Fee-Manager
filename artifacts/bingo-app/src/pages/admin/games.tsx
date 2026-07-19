@@ -48,6 +48,12 @@ type GameTicket = {
   username: string | null
 }
 
+type PlayerGroup = {
+  userId: number
+  username: string
+  tickets: GameTicket[]
+}
+
 function ForceWinnerDialog({
   gameId,
   open,
@@ -89,6 +95,15 @@ function ForceWinnerDialog({
     }
   }
 
+  // Group tickets by player so both cartelas appear side-by-side
+  const players: PlayerGroup[] = Object.values(
+    tickets.reduce<Record<number, PlayerGroup>>((acc, t) => {
+      if (!acc[t.userId]) acc[t.userId] = { userId: t.userId, username: t.username ?? `User #${t.userId}`, tickets: [] }
+      acc[t.userId].tickets.push(t)
+      return acc
+    }, {})
+  )
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
       <DialogContent className="border-accent/30 bg-background/95 sm:max-w-md max-h-[80dvh] overflow-y-auto">
@@ -109,28 +124,28 @@ function ForceWinnerDialog({
           </div>
         )}
 
-        {tickets.length > 0 && (
-          <div className="space-y-2">
-            {tickets.map((t) => (
-              <div key={t.id} className="flex items-center justify-between glass-panel rounded-lg px-3 py-2 border border-white/10">
-                <div>
-                  <div className="text-sm font-bold text-white">
-                    {t.username ?? `User #${t.userId}`}
-                  </div>
-                  <div className="text-xs text-muted-foreground font-mono">
-                    Ticket #{t.id} · Cartela #{t.cartelaNumber}
-                  </div>
+        {players.length > 0 && (
+          <div className="space-y-3">
+            {players.map((p) => (
+              <div key={p.userId} className="glass-panel rounded-lg border border-white/10 overflow-hidden">
+                <div className="px-3 py-2 border-b border-white/5 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                  {p.username}
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleForce(t.id)}
-                  disabled={!!forcing || t.isWinner}
-                  className="shrink-0"
-                >
-                  {forcing === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
-                  {t.isWinner ? 'Winner' : 'Force Win'}
-                </Button>
+                <div className={`grid gap-2 p-2 ${p.tickets.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {p.tickets.map((t) => (
+                    <Button
+                      key={t.id}
+                      size="sm"
+                      variant={t.isWinner ? 'outline' : 'secondary'}
+                      onClick={() => handleForce(t.id)}
+                      disabled={!!forcing || t.isWinner}
+                      className="flex flex-col h-auto py-2 gap-0.5"
+                    >
+                      {forcing === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
+                      <span className="text-[11px]">{t.isWinner ? 'Winner' : `Cartela #${t.cartelaNumber}`}</span>
+                    </Button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
