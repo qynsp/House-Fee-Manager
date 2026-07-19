@@ -7,8 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { useToast } from '@/hooks/use-toast'
 import { useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Square, RotateCcw, Trophy, Loader2, Users, Ticket } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Square, RotateCcw, Trophy, Loader2, Users, RefreshCw, Zap } from 'lucide-react'
 
 const API_BASE = import.meta.env.BASE_URL + 'api'
 
@@ -48,6 +48,12 @@ type GameTicket = {
   username: string | null
 }
 
+type PlayerGroup = {
+  userId: number
+  username: string
+  tickets: GameTicket[]
+}
+
 function ForceWinnerDialog({
   gameId,
   open,
@@ -63,81 +69,138 @@ function ForceWinnerDialog({
   const [loading, setLoading] = useState(false)
   const [forcing, setForcing] = useState<number | null>(null)
   const { toast } = useToast()
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const loadTickets = async () => {
-    setLoading(true)
+  const loadTickets = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const data = await adminGet(`/games/${gameId}/all-tickets`)
       setTickets(data)
     } catch {
-      toast({ title: 'Failed to load tickets', variant: 'destructive' })
+      if (!silent) toast({ title: 'Failed to load tickets', variant: 'destructive' })
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [gameId])
+
+  // Auto-load on open, auto-refresh every 3s while open
+  useEffect(() => {
+    if (!open) return
+    loadTickets(false)
+    intervalRef.current = setInterval(() => loadTickets(true), 3000)
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [open, loadTickets])
 
   const handleForce = async (ticketId: number) => {
     setForcing(ticketId)
+    if (intervalRef.current) clearInterval(intervalRef.current)
     try {
       await adminPost(`/games/${gameId}/force-winner`, { ticketId })
-      toast({ title: '🏆 Winner forced!', description: `Ticket #${ticketId} is now the winner.` })
+      toast({ title: '🏆 Winner slammed!' })
       onDone()
     } catch (err: any) {
       toast({ title: 'Failed', description: err.message, variant: 'destructive' })
+      // Resume polling on failure
+      intervalRef.current = setInterval(() => loadTickets(true), 3000)
     } finally {
       setForcing(null)
     }
   }
 
+  // Group tickets by player
+  const players: PlayerGroup[] = Object.values(
+    tickets.reduce<Record<number, PlayerGroup>>((acc, t) => {
+      const key = t.userId
+      if (!acc[key]) acc[key] = { userId: t.userId, username: t.username ?? `User #${t.userId}`, tickets: [] }
+      acc[key].tickets.push(t)
+      return acc
+    }, {})
+  )
+
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="border-accent/30 bg-background/95 sm:max-w-md max-h-[80dvh] overflow-y-auto">
+      <DialogContent className="border-accent/30 bg-background/95 sm:max-w-sm max-h-[85dvh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl font-black uppercase tracking-widest text-accent">Force Winner</DialogTitle>
-          <DialogDescription>Select a ticket to declare as winner. The prize pool will be awarded immediately.</DialogDescription>
+          <div className="flex items-center justify-between">
+            <DialogTitle className="text-xl font-black uppercase tracking-widest text-accent flex items-center gap-2">
+              <Zap className="h-5 w-5" /> Slam Bingo
+            </DialogTitle>
+            <button
+              onClick={() => loadTickets(false)}
+              className="text-muted-foreground hover:text-white transition-colors p-1 rounded"
+              title="Refresh"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+          <DialogDescription className="text-xs">
+            Tap a player to award them the prize instantly.
+            {tickets.length > 0 && <span className="text-accent font-bold ml-1">{tickets.length} ticket{tickets.length !== 1 ? 's' : ''} · auto-refreshing</span>}
+          </DialogDescription>
         </DialogHeader>
 
-        {!tickets.length && !loading && (
-          <Button onClick={loadTickets} variant="outline" className="w-full">
-            <Ticket className="mr-2 h-4 w-4" /> Load Tickets
-          </Button>
-        )}
-
-        {loading && (
-          <div className="flex items-center justify-center py-8">
+        {loading && tickets.length === 0 && (
+          <div className="flex items-center justify-center py-10">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         )}
 
-        {tickets.length > 0 && (
-          <div className="space-y-2">
-            {tickets.map((t) => (
-              <div key={t.id} className="flex items-center justify-between glass-panel rounded-lg px-3 py-2 border border-white/10">
-                <div>
-                  <div className="text-sm font-bold text-white">
-                    {t.username ?? `User #${t.userId}`}
+        {!loading && players.length === 0 && (
+          <p className="text-center text-sm text-muted-foreground py-8 uppercase tracking-widest">No tickets yet — waiting for players…</p>
+        )}
+
+        {players.length > 0 && (
+          <div className="space-y-3 pt-1">
+            {players.map((p) => (
+              <div key={p.userId} className="glass-panel rounded-xl border border-white/10 overflow-hidden">
+                {/* Player header */}
+                <div className="px-4 py-2 border-b border-white/5 flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center shrink-0">
+                    <span className="text-xs font-black text-primary">{p.username.substring(0, 2).toUpperCase()}</span>
                   </div>
-                  <div className="text-xs text-muted-foreground font-mono">
-                    Ticket #{t.id} · Cartela #{t.cartelaNumber}
-                  </div>
+                  <span className="font-bold text-white text-sm">{p.username}</span>
+                  <Badge variant="outline" className="ml-auto text-xs border-white/20 text-muted-foreground">
+                    {p.tickets.length} ticket{p.tickets.length !== 1 ? 's' : ''}
+                  </Badge>
                 </div>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => handleForce(t.id)}
-                  disabled={!!forcing || t.isWinner}
-                  className="shrink-0"
-                >
-                  {forcing === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trophy className="h-3 w-3" />}
-                  {t.isWinner ? 'Winner' : 'Force Win'}
-                </Button>
+
+                {/* One big slam button per ticket */}
+                <div className={`grid gap-2 p-3 ${p.tickets.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                  {p.tickets.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => !t.isWinner && !forcing && handleForce(t.id)}
+                      disabled={!!forcing || t.isWinner}
+                      className={`
+                        relative rounded-lg py-4 flex flex-col items-center gap-1 font-black transition-all select-none
+                        ${t.isWinner
+                          ? 'bg-green-500/20 border border-green-500/40 text-green-400 cursor-default'
+                          : forcing === t.id
+                            ? 'bg-accent/10 border border-accent/40 text-accent cursor-wait'
+                            : 'bg-accent/5 border border-accent/20 text-accent hover:bg-accent/20 hover:border-accent/60 hover:scale-[1.02] active:scale-95 cursor-pointer'
+                        }
+                      `}
+                    >
+                      {forcing === t.id
+                        ? <Loader2 className="h-6 w-6 animate-spin" />
+                        : t.isWinner
+                          ? <Trophy className="h-6 w-6 text-green-400" />
+                          : <Zap className="h-6 w-6" />
+                      }
+                      <span className="text-xs uppercase tracking-widest">
+                        {t.isWinner ? 'Winner' : `Cartela #${t.cartelaNumber}`}
+                      </span>
+                      {!t.isWinner && !forcing && (
+                        <span className="text-[10px] text-muted-foreground font-normal">tap to slam</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
-        )}
-
-        {tickets.length === 0 && !loading && (
-          <p className="text-center text-sm text-muted-foreground py-4">No tickets in this game yet.</p>
         )}
       </DialogContent>
     </Dialog>
