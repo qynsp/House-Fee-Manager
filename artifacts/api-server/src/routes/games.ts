@@ -215,12 +215,13 @@ router.post("/games/:id/tickets", requireAuth, async (req, res): Promise<void> =
     }).where(eq(gamesTable.id, params.data.id)),
   ]);
 
-  // Emit events
+  // Emit events scoped to this game's room
   const io = getIo();
   if (io) {
     const [updatedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
-    if (isFirstTicket) io.emit("playerJoined", { playerCount: updatedGame.playerCount });
-    io.emit("gameUpdate", { game: formatGame(updatedGame) });
+    const room = `game:${params.data.id}`;
+    if (isFirstTicket) io.to(room).emit("playerJoined", { playerCount: updatedGame.playerCount });
+    io.to(room).emit("gameUpdate", { game: formatGame(updatedGame) });
   }
 
   // Immediately check if we have enough players to start — don't wait for the 30s poll
@@ -297,17 +298,18 @@ router.post("/games/:id/claim", requireAuth, async (req, res): Promise<void> => 
     }).where(eq(usersTable.id, req.user!.userId)),
   ]);
 
-  // Emit winner event
+  // Emit winner event scoped to this game's room
   const io = getIo();
   if (io) {
     const [finishedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
-    io.emit("bingoWinner", {
+    const room = `game:${params.data.id}`;
+    io.to(room).emit("bingoWinner", {
       winner: { username: user.username, prizeAmount, pattern: result.pattern },
     });
-    io.emit("gameFinished", { game: formatGame(finishedGame, user.username) });
+    io.to(room).emit("gameFinished", { game: formatGame(finishedGame, user.username) });
   }
 
-  // Create next game after a short delay
+  // Create next game after a short delay; broadcast to ALL so lobby refreshes
   setTimeout(async () => {
     const [settings] = await db.select().from(houseSettingsTable).limit(1);
     const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
@@ -323,9 +325,7 @@ router.post("/games/:id/claim", requireAuth, async (req, res): Promise<void> => 
       playerCount: 0,
     }).returning();
     const io2 = getIo();
-    if (io2) {
-      io2.emit("gameUpdate", { game: formatGame(newGame) });
-    }
+    if (io2) io2.emit("newGame", { game: formatGame(newGame) });
   }, 10000);
 
   res.json({ valid: true, message: "BINGO! You won!", prizeAmount, pattern: result.pattern });
@@ -378,10 +378,10 @@ router.post("/games/:id/stop", requireAdmin, async (req, res): Promise<void> => 
 
   const io = getIo();
   if (io) {
-    io.emit("gameFinished", { game: formatGame(stoppedGame) });
+    io.to(`game:${params.data.id}`).emit("gameFinished", { game: formatGame(stoppedGame) });
   }
 
-  // Create next waiting game
+  // Create next waiting game; broadcast to ALL so lobby refreshes
   setTimeout(async () => {
     const [settings] = await db.select().from(houseSettingsTable).limit(1);
     const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
@@ -397,7 +397,7 @@ router.post("/games/:id/stop", requireAdmin, async (req, res): Promise<void> => 
       playerCount: 0,
     }).returning();
     const io2 = getIo();
-    if (io2) io2.emit("gameUpdate", { game: formatGame(newGame) });
+    if (io2) io2.emit("newGame", { game: formatGame(newGame) });
   }, 3000);
 
   res.json({ message: "Game stopped", game: formatGame(stoppedGame) });
@@ -425,7 +425,7 @@ router.post("/games/:id/restart", requireAdmin, async (req, res): Promise<void> 
     .returning();
 
   const io = getIo();
-  if (io) io.emit("gameUpdate", { game: formatGame(restarted) });
+  if (io) io.to(`game:${params.data.id}`).emit("gameUpdate", { game: formatGame(restarted) });
 
   res.json({ message: "Game restarted", game: formatGame(restarted) });
 });
@@ -472,11 +472,12 @@ router.post("/games/:id/force-winner", requireAdmin, async (req, res): Promise<v
   const io = getIo();
   if (io) {
     const [finishedGame] = await db.select().from(gamesTable).where(eq(gamesTable.id, params.data.id));
-    io.emit("bingoWinner", { winner: { username: user.username, prizeAmount, pattern: "force_win" } });
-    io.emit("gameFinished", { game: formatGame(finishedGame, user.username) });
+    const room = `game:${params.data.id}`;
+    io.to(room).emit("bingoWinner", { winner: { username: user.username, prizeAmount, pattern: "force_win" } });
+    io.to(room).emit("gameFinished", { game: formatGame(finishedGame, user.username) });
   }
 
-  // Create next game
+  // Create next game; broadcast to ALL so lobby refreshes
   setTimeout(async () => {
     const [settings] = await db.select().from(houseSettingsTable).limit(1);
     const ticketPrice = settings ? parseFloat(String(settings.ticketPrice)) : 10;
@@ -492,7 +493,7 @@ router.post("/games/:id/force-winner", requireAdmin, async (req, res): Promise<v
       playerCount: 0,
     }).returning();
     const io2 = getIo();
-    if (io2) io2.emit("gameUpdate", { game: formatGame(newGame) });
+    if (io2) io2.emit("newGame", { game: formatGame(newGame) });
   }, 5000);
 
   res.json({ message: "Winner forced", ticketId: ticket.id, userId: ticket.userId, prizeAmount });

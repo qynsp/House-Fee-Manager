@@ -18,9 +18,11 @@ export default function GameLive({ params }: { params: { id: string } }) {
   const { data: game, isLoading: gameLoading } = useGetGame(gameId, {
     query: {
       enabled: !!gameId,
+      // Socket pushes all live updates; only fall back to polling if socket
+      // goes silent for more than 30 s (e.g. connection dropped).
       refetchInterval: (query) => {
         const status = (query.state.data as any)?.status
-        return status === 'active' ? 2000 : false
+        return status === 'active' ? 30000 : false
       },
     },
   })
@@ -29,7 +31,7 @@ export default function GameLive({ params }: { params: { id: string } }) {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   
-  const { lastDrawnNumber, winner, clearWinner } = useGameSocket()
+  const { lastDrawnNumber, winner, clearWinner } = useGameSocket(gameId)
 
   // Confetti on win
   useEffect(() => {

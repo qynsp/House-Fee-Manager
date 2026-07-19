@@ -88,14 +88,14 @@ export default function Lobby() {
   const [, setLocation] = useLocation()
   const { data: game, isLoading: gameLoading } = useGetCurrentGame()
   const { data: settings } = useGetSettings()
-  const { data: cartelaData } = useGetGameCartelas(game?.id ?? 0, {
-    query: { enabled: !!game?.id && (game?.status === 'waiting' || game?.status === 'starting'), refetchInterval: 5000 },
+  const { data: cartelaData, refetch: refetchCartelas } = useGetGameCartelas(game?.id ?? 0, {
+    query: { enabled: !!game?.id && (game?.status === 'waiting' || game?.status === 'starting') },
   })
   const buyTicket = useBuyTicket()
   const queryClient = useQueryClient()
   const { toast } = useToast()
 
-  const { playerCount } = useGameSocket()
+  const { playerCount } = useGameSocket(game?.id)
   const displayPlayers = playerCount > (game?.playerCount || 0) ? playerCount : (game?.playerCount || 0)
 
   const [timeLeft, setTimeLeft] = useState<number | null>(null)

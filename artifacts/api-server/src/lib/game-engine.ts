@@ -93,8 +93,10 @@ async function startDrawing(gameId: number) {
 
     const io = getIo();
     if (io) {
-      io.emit("numberDrawn", { number: newNumber, game: formatGame(updatedGame) });
-      io.emit("gameUpdate", { game: formatGame(updatedGame) });
+      const formatted = formatGame(updatedGame);
+      // Emit only to players in this game's room; numberDrawn already carries
+      // the full game object so gameUpdate is redundant here.
+      io.to(`game:${gameId}`).emit("numberDrawn", { number: newNumber, game: formatted });
     }
 
     logger.info({ gameId, number: newNumber }, "Number drawn");
@@ -120,8 +122,9 @@ export async function checkAndStartGame(gameId: number) {
 
   const io = getIo();
   if (io) {
-    io.emit("gameStarting", { game: formatGame(startingGame), startsInMs: countdownMs });
-    io.emit("gameUpdate", { game: formatGame(startingGame) });
+    const formatted = formatGame(startingGame);
+    io.to(`game:${startingGame.id}`).emit("gameStarting", { game: formatted, startsInMs: countdownMs });
+    io.to(`game:${startingGame.id}`).emit("gameUpdate", { game: formatted });
   }
 
   logger.info({ gameId, startingAt, countdownMs }, "Game entering countdown");
@@ -146,8 +149,9 @@ async function tickCountdowns() {
 
   const io = getIo();
   if (io) {
-    io.emit("gameStarted", { game: formatGame(activeGame) });
-    io.emit("gameUpdate", { game: formatGame(activeGame) });
+    const formatted = formatGame(activeGame);
+    io.to(`game:${activeGame.id}`).emit("gameStarted", { game: formatted });
+    io.to(`game:${activeGame.id}`).emit("gameUpdate", { game: formatted });
   }
 
   logger.info({ gameId: startingGame.id }, "Game started after countdown");
