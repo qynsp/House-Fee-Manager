@@ -150,7 +150,7 @@ export default function GameLive({ params }: { params: { id: string } }) {
       </Card>
 
       {/* Player Tickets */}
-      <div className="space-y-8">
+      <div className="space-y-4">
         {myTickets.length === 0 ? (
           <div className="text-center p-8 glass-panel rounded-xl space-y-4">
             <Ticket className="w-12 h-12 text-muted-foreground mx-auto" />
@@ -160,61 +160,82 @@ export default function GameLive({ params }: { params: { id: string } }) {
             )}
           </div>
         ) : (
-          myTickets.map(ticket => (
-            <div key={ticket.id} className="space-y-4">
-              <div className="flex justify-between items-center px-2">
-                <div className="text-sm font-bold tracking-widest text-muted-foreground uppercase">Ticket #{ticket.id}</div>
-                {ticket.isWinner && <div className="text-xs font-bold text-accent tracking-widest uppercase glow-text flex items-center gap-1"><Medal className="w-3 h-3"/> Winner</div>}
-              </div>
-              
-              <Card className={`border-2 transition-all ${ticket.isWinner ? 'border-accent glow-secondary' : 'border-white/10'}`}>
-                <CardContent className="p-2 sm:p-4">
-                  {/* Bingo Headers */}
-                  <div className="grid grid-cols-5 gap-1 mb-2">
-                    {['B','I','N','G','O'].map(letter => (
-                      <div key={letter} className="text-center font-black text-xl sm:text-2xl text-primary glow-text tracking-widest">{letter}</div>
-                    ))}
-                  </div>
-                  
-                  {/* 5x5 Grid */}
-                  <div className="grid grid-cols-5 gap-1 sm:gap-2">
-                    {ticket.card.map((row, rIdx) => 
-                      row.map((num, cIdx) => {
-                        const isFree = rIdx === 2 && cIdx === 2
-                        const drawn = isFree || game.drawnNumbers.includes(num)
-                        
-                        return (
-                          <div 
-                            key={`${rIdx}-${cIdx}`}
-                            className={`aspect-square flex items-center justify-center text-sm sm:text-xl font-bold font-mono rounded-md border-2 transition-all ${
-                              isFree 
-                                ? 'bg-secondary/20 border-secondary text-secondary glow-secondary text-xs sm:text-sm'
-                                : drawn
-                                  ? 'bg-primary/20 border-primary text-primary glow-primary'
-                                  : 'bg-black/40 border-white/5 text-muted-foreground'
-                            }`}
-                          >
-                            {isFree ? 'FREE' : num}
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+          <>
+            {/* Cards — side by side when 2 tickets */}
+            <div className={myTickets.length === 2 ? 'grid grid-cols-2 gap-2' : 'space-y-4'}>
+              {myTickets.map(ticket => {
+                const twoUp = myTickets.length === 2
+                return (
+                  <div key={ticket.id} className="space-y-1">
+                    <div className="flex justify-between items-center px-1">
+                      <div className={`font-bold tracking-widest text-muted-foreground uppercase ${twoUp ? 'text-[10px]' : 'text-sm'}`}>
+                        Cartela #{(ticket as any).cartelaNumber ?? ticket.id}
+                      </div>
+                      {ticket.isWinner && (
+                        <div className="text-[10px] font-bold text-accent tracking-widest uppercase glow-text flex items-center gap-0.5">
+                          <Medal className="w-3 h-3"/> Winner
+                        </div>
+                      )}
+                    </div>
 
-              {game.status === 'active' && !ticket.isWinner && (
-                <Button 
-                  size="lg" 
-                  className="w-full h-14 text-xl tracking-widest" 
-                  onClick={() => handleClaim(ticket.id)}
-                  disabled={claimBingo.isPending}
-                >
-                  SLAM BINGO
-                </Button>
-              )}
+                    <Card className={`border-2 transition-all ${ticket.isWinner ? 'border-accent glow-secondary' : 'border-white/10'}`}>
+                      <CardContent className={twoUp ? 'p-1' : 'p-2 sm:p-4'}>
+                        {/* Bingo Headers */}
+                        <div className={`grid grid-cols-5 mb-1 ${twoUp ? 'gap-0.5' : 'gap-1 mb-2'}`}>
+                          {['B','I','N','G','O'].map(letter => (
+                            <div key={letter} className={`text-center font-black text-primary glow-text tracking-widest ${twoUp ? 'text-xs' : 'text-xl sm:text-2xl'}`}>{letter}</div>
+                          ))}
+                        </div>
+
+                        {/* 5x5 Grid */}
+                        <div className={`grid grid-cols-5 ${twoUp ? 'gap-0.5' : 'gap-1 sm:gap-2'}`}>
+                          {ticket.card.map((row, rIdx) =>
+                            row.map((num, cIdx) => {
+                              const isFree = rIdx === 2 && cIdx === 2
+                              const drawn = isFree || game.drawnNumbers.includes(num)
+                              return (
+                                <div
+                                  key={`${rIdx}-${cIdx}`}
+                                  className={`aspect-square flex items-center justify-center font-bold font-mono rounded-md border-2 transition-all ${
+                                    twoUp ? 'text-[8px]' : 'text-sm sm:text-xl'
+                                  } ${
+                                    isFree
+                                      ? 'bg-secondary/20 border-secondary text-secondary glow-secondary'
+                                      : drawn
+                                        ? 'bg-primary/20 border-primary text-primary glow-primary'
+                                        : 'bg-black/40 border-white/5 text-muted-foreground'
+                                  }`}
+                                >
+                                  {isFree ? '★' : num}
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )
+              })}
             </div>
-          ))
+
+            {/* SLAM BINGO buttons — full width, one per ticket */}
+            {game.status === 'active' && (
+              <div className="space-y-2">
+                {myTickets.filter(t => !t.isWinner).map(ticket => (
+                  <Button
+                    key={ticket.id}
+                    size="lg"
+                    className="w-full h-14 text-xl tracking-widest"
+                    onClick={() => handleClaim(ticket.id)}
+                    disabled={claimBingo.isPending}
+                  >
+                    SLAM BINGO{myTickets.length > 1 ? ` · Cartela #${(ticket as any).cartelaNumber ?? ticket.id}` : ''}
+                  </Button>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
