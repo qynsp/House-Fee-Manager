@@ -1,0 +1,36 @@
+# Render deployment configuration for House Fee Manager (Telegram Bingo App)
+# Free tier: web service spins down after 15 min of inactivity (cold start ~30s).
+# Database: provision a free PostgreSQL on Neon (https://neon.tech) and paste
+# the connection string into the DATABASE_URL env var in Render dashboard.
+
+services:
+  - type: web
+    name: house-fee-manager
+    env: node
+    plan: free
+    region: oregon
+    # Install pnpm 9 (matches lockfileVersion 9.0), install deps, build frontend
+    # then backend.  BASE_PATH=/ because the app is served from the domain root.
+    buildCommand: >
+      npm install -g pnpm@9 &&
+      pnpm install --frozen-lockfile &&
+      BASE_PATH=/ pnpm --filter @workspace/bingo-app run build &&
+      pnpm --filter @workspace/api-server run build
+    startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
+    healthCheckPath: /api/healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Set DATABASE_URL in Render dashboard — paste Neon connection string.
+      # Format: postgresql://user:password@host/dbname?sslmode=require
+      - key: DATABASE_URL
+        sync: false
+      # Render auto-generates a strong random value for JWT_SECRET.
+      - key: JWT_SECRET
+        generateValue: true
+      # Set a secure admin password in Render dashboard (do NOT commit it).
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Optional — required only for real Telegram Mini App HMAC validation.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
