@@ -10,11 +10,7 @@ services:
     region: oregon
     # corepack reads packageManager from package.json ("pnpm@9.15.0") and
     # activates the correct pnpm version without needing a global npm install.
-    buildCommand: >
-      corepack enable &&
-      pnpm install --frozen-lockfile &&
-      BASE_PATH=/ pnpm --filter @workspace/bingo-app run build &&
-      pnpm --filter @workspace/api-server run build
+    buildCommand: "corepack enable && corepack prepare pnpm@9.15.0 --activate && pnpm install --no-frozen-lockfile && BASE_PATH=/ pnpm --filter @workspace/bingo-app run build && pnpm --filter @workspace/api-server run build"
     startCommand: node --enable-source-maps artifacts/api-server/dist/index.mjs
     healthCheckPath: /api/healthz
     envVars:

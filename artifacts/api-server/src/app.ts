@@ -42,7 +42,7 @@ if (process.env.NODE_ENV === "production") {
   app.use(express.static(frontendDist));
   // SPA fallback — all non-API routes return index.html so client-side
   // routing (wouter) works correctly after a hard refresh.
-  app.get("*", (_req, res) => {
+  app.get("/*splat", (_req, res) => {
     res.sendFile(path.join(frontendDist, "index.html"));
   });
 }
